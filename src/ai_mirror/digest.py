@@ -44,8 +44,8 @@ def extractive_digest(evidence):
         # Quote the student; do not turn activity into a claim of understanding.
         if public:
             source = public[0]
-            excerpt = " ".join(source["text"].split())[:220]
-            summary = f"Latest student-authored record: “{excerpt}”. Learning claims still need instructor judgment."
+            excerpt = " ".join(source["text"].split())[:220].rstrip(". ")
+            summary = f"Latest submitted reflection: “{excerpt}.” Learning claims still need instructor judgment."
             ids = [source["id"]]
             feedback = "Which observation most changed your next step, and what would make you reconsider it?"
         elif written:
@@ -58,7 +58,8 @@ def extractive_digest(evidence):
             feedback = "What changed in your project or thinking, and what evidence can you point to?"
         students.append(DigestRow(student_id=student["student_id"], summary=summary, feedback=feedback, source_ids=ids))
     private_count = sum(any(s.get("private") for s in student["sources"]) for student in evidence)
-    themes = [f"{private_count} students have private notes to review individually."] if private_count else []
+    themes = ([f"{private_count} {'student has a private note' if private_count == 1 else 'students have private notes'} "
+               "to review individually."] if private_count else [])
     return DigestBody(students=students, themes=themes)
 
 

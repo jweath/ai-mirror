@@ -69,6 +69,7 @@ My answer:
 
 
 def submission_body(repo, student, sprint, sha, journal, brief, peer):
+    safe_id(sprint)
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
         raise ValueError("Repository must be owner/name")
     if not re.fullmatch(r"[a-f0-9]{40}", sha):
@@ -171,15 +172,32 @@ def main():
                 # Verify the exact file is accessible before creating a receipt. gh uses the student's own account.
                 subprocess.run(["gh", "api", f"repos/{args.repo}/contents/{args.journal}?ref={args.sha}"],
                                check=True, stdout=subprocess.DEVNULL)
+                title = f"Learning journal: {args.student} — {args.sprint}"
+                candidates = json.loads(subprocess.check_output(
+                    ["gh", "issue", "list", "--repo", args.repo, "--state", "all", "--limit", "100",
+                     "--search", f'"{args.sprint}" in:title', "--json", "title,url,body,state"], text=True))
+                if len(candidates) >= 100:
+                    raise ValueError("Too many matching issues to safely select a receipt; choose the issue manually")
+                matches = [issue for issue in candidates if issue["title"] == title]
+                if len(matches) > 1:
+                    raise ValueError("Multiple submission issues already match; choose the existing receipt manually")
                 with tempfile.NamedTemporaryFile(mode="w", suffix=".md") as file:
                     file.write(body)
                     file.flush()
-                    issue = subprocess.check_output(["gh", "issue", "create", "--repo", args.repo, "--title",
-                                                      f"Learning journal: {args.student} — {args.sprint}",
-                                                      "--body-file", file.name], text=True).strip()
+                    if matches:
+                        issue = matches[0]["url"]
+                        if matches[0]["body"] != body:
+                            comments = json.loads(subprocess.check_output(
+                                ["gh", "issue", "view", issue, "--json", "comments"], text=True))["comments"]
+                            if not any(c.get("body") == body for c in comments):
+                                subprocess.run(["gh", "issue", "comment", issue, "--body-file", file.name], check=True)
+                    else:
+                        issue = subprocess.check_output(["gh", "issue", "create", "--repo", args.repo, "--title",
+                                                          title, "--body-file", file.name], text=True).strip()
                 # Print the receipt immediately so a close failure can be recovered without creating a duplicate.
-                print(json.dumps({"created_issue": issue, "next": "Closing submission receipt"}))
-                subprocess.run(["gh", "issue", "close", issue, "--reason", "completed"], check=True)
+                print(json.dumps({"submission_issue": issue, "next": "Verifying closed submission receipt"}))
+                if not matches or matches[0]["state"] == "OPEN":
+                    subprocess.run(["gh", "issue", "close", issue, "--reason", "completed"], check=True)
                 result = {"issue": issue, "submitted": True}
         print(json.dumps(result, indent=2, ensure_ascii=False))
     except (ValueError, OSError, subprocess.CalledProcessError, httpx.HTTPError) as exc:

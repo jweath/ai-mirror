@@ -190,6 +190,8 @@ def create_app(settings=None, store=None, slack=None):
                 info = slack.call("conversations.info", {"channel": project.channel_id}).get("channel", {})
                 if not info.get("is_member") or info.get("is_archived"):
                     raise ValueError(f"Invite AI Mirror to the active project channel for {project.id} before activating")
+            if identity.get("url"):
+                store.set("slack_workspace_url", identity["url"])
         store.save_course(course)
         return {"saved": True, "active": course.active}
 

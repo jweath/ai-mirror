@@ -161,7 +161,8 @@ def handle_event(store, payload):
         return "ignored"
     store.add_entry(f"slack/{event['channel']}/{event['ts']}", student.id, prompt["sprint"], "exit_ticket",
                     event.get("text", "")[:12000],
-                    {"url": slack_link(course.workspace_id, event["channel"], event["ts"]),
+                    {"url": slack_link(course.workspace_id, event["channel"], event["ts"],
+                                       store.get("slack_workspace_url")),
                      "channel": event["channel"], "ts": event["ts"], "thread_ts": event["thread_ts"]})
     return "recorded"
 

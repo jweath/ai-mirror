@@ -178,3 +178,43 @@ def test_course_rejects_duplicate_ids_and_naive_dates(course):
     value['meetings'][0]['at'] = '2026-10-15T14:35:00'
     with pytest.raises(ValueError, match='UTC offset'):
         Course.model_validate(value)
+
+
+def test_peer_job_assignments_do_not_change_on_repeated_ticks(store, course, now):
+    course.meetings[0].kind = 'peer_review'
+    store.save_course(course)
+    assert enqueue_due(store, now) == 4
+    first = store.outbox()
+    assert enqueue_due(store, now) == 0
+    assert store.outbox() == first
+    assert len(store.get('previous_peer_pairs')) == 4
+
+
+def test_recorded_identity_mapping_cannot_silently_move(store, course):
+    store.add_entry('x','alex','sprint-3','exit_ticket','my words',{})
+    course.students[0].slack_id = 'UNEWPERSON'
+    with pytest.raises(ValueError, match='identity mappings'):
+        store.save_course(course)
+
+
+def test_command_retry_does_not_publish_twice(store):
+    form = {'team_id':'TDEMO','user_id':'UALEX','channel_id':'CGARDEN','trigger_id':'same',
+            'text':'exit I learned something from the test.'}
+    assert handle_command(store, form)['response_type'] == 'in_channel'
+    assert handle_command(store, form)['response_type'] == 'ephemeral'
+    assert len(store.entries('sprint-3')) == 1
+
+
+def test_retention_removes_evidence_and_content_but_preserves_delivery_identity(store):
+    store.add_entry('old','alex','sprint-3','exit_ticket','private words',{})
+    store.set('evidence/sprint-3/alex', {'collected_at':'2000-01-01T00:00:00+00:00','items':[{'text':'old'}]})
+    store.enqueue('delivery','feedback',{'text':'private feedback'},'2000-01-01T00:00:00+00:00')
+    store.finish('delivery','sent','123.456')
+    with store.connect() as db:
+        db.execute("UPDATE entries SET created_at='2000-01-01T00:00:00+00:00'")
+        db.execute("UPDATE outbox SET created_at='2000-01-01T00:00:00+00:00'")
+    store.purge('2026-01-01T00:00:00+00:00')
+    assert store.entries('sprint-3') == []
+    assert store.get('evidence/sprint-3/alex') is None
+    assert store.outbox()[0]['payload'] == {}
+    assert not store.enqueue('delivery','feedback',{'text':'private feedback'},'2026-01-01T00:00:00+00:00')

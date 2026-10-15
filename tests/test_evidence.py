@@ -69,3 +69,30 @@ def test_model_cannot_cite_another_students_evidence(store, settings, monkeypatc
     with pytest.raises(ValueError, match='another student'):
         generate(store, settings)
     assert store.outbox() == [] and store.digest_list() == []
+
+
+def test_closed_journal_issue_is_collected_without_slash_command(store, course):
+    course.github_enabled = True
+    store.save_course(course)
+    sha = 'c'*40
+    def handler(request):
+        path = request.url.path
+        if path.endswith('/commits'):
+            return httpx.Response(200, json=[])
+        if '/contents/' in path:
+            return httpx.Response(200, json={'type':'file','encoding':'base64','size':20,
+                                            'content':base64.b64encode(b'I changed my hypothesis.').decode()})
+        if path == '/repos/example/garden/issues':
+            return httpx.Response(200, json=[{'number':7, 'state':'closed', 'title':'Learning journal: alex — sprint-3',
+                'user':{'login':'example-alex'}, 'assignees':[], 'comments':0,
+                'html_url':'https://github.com/example/garden/issues/7',
+                'body':f'Journal: https://github.com/example/garden/blob/{sha}/journal/alex/sprint-3/reflection.md'}])
+        return httpx.Response(200, json=[])
+    github = GitHub(transport=httpx.MockTransport(handler))
+    collect_github(store, github)
+    alex = store.entries('sprint-3','alex')
+    assert {e['kind'] for e in alex} == {'journal','submission'}
+    assert next(e for e in alex if e['kind']=='journal')['text'] == 'I changed my hypothesis.'
+    assert store.entries('sprint-3','sam') == []
+    collect_github(store, github)
+    assert len(store.entries('sprint-3','alex')) == 2

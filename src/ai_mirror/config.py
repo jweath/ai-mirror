@@ -63,6 +63,7 @@ class Course(StrictModel):
         ZoneInfo(self.timezone)
         for values, label in [([s.id for s in self.students], "student IDs"),
                               ([s.slack_id for s in self.students], "Slack IDs"),
+                              ([s.github_login.lower() for s in self.students], "GitHub accounts"),
                               ([p.id for p in self.projects], "project IDs"),
                               ([p.channel_id for p in self.projects], "project channels"),
                               ([m.id for m in self.meetings], "meeting IDs")]:

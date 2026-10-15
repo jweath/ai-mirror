@@ -23,7 +23,7 @@ The [deployed workspace](https://ai-mirror-production-9c9f.up.railway.app/instru
 - A private roster and explicit schedule, with a preview before activation.
 - One Slack exit-ticket thread per project channel per class meeting; each owner replies individually.
 - Scoped capture of replies to those prompts; `/mirror muddy` for a private note.
-- GitHub evidence from registered repositories and journals pinned to exact commits.
+- GitHub evidence from registered repositories and journals pinned to exact commits, including automatic discovery of closed submission issues.
 - Deterministic peer assignments that exclude project partners.
 - A private 1–2 sentence digest and one feedback suggestion per student. The instructor reviews and edits before queueing feedback to a project channel.
 - Durable delivery receipts, send holds, and recovery for uncertain sends.

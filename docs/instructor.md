@@ -30,7 +30,7 @@ Students post the human journal text plus the exact commit link in their project
 
 ## Submission and assessment
 
-One issue in the student's project repository links their exact journal commit, AI starting material, and peer thread. Closing the issue records submission. Revisions are new commits linked in comments on the same issue. The optional `/mirror submit` command makes the receipt visible to the service. Private code repositories can remain private; shared Slack text gives classmates the reflection without code access.
+One issue in the student's project repository links their exact journal commit, AI starting material, and peer thread. Closing the issue records submission. Revisions are new commits linked in comments on the same issue. With GitHub collection enabled, the service discovers closed issues titled `Learning journal: <student ID or roster name> — <sprint>` created by that student and reads the linked `reflection.md`. Later student-authored issue comments can point to a revised exact version. The optional `/mirror submit` command registers a receipt immediately when automatic discovery is unavailable. Private code repositories can remain private; shared Slack text gives classmates the reflection without code access.
 
 Use the existing 10-point journal allocation across Sprint 3 and Sprint 4 (5 points each); see the [assignment rubric](assignment.md). Kickoffs and daily notes feed the wrap-up rather than becoming attendance points. Grade specificity, evidence, reasoning, growth, verification, and use of feedback. Honest failure and unresolved questions can earn full credit. Enter only the resulting grades into eLC. The application contains no automatic grade or AI learning score.
 

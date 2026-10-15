@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import base64
+import re
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 
 import httpx
+
+from .workflow import parse_submission
 
 
 class GitHub:
@@ -77,6 +80,31 @@ def collect_github(store, github, now=None):
                     evidence.append({"type": "pull_request" if "pull_request" in issue else "issue",
                                      "url": issue.get("html_url"), "text": issue.get("title", "")[:500],
                                      "state": issue.get("state"), "attribution": "author or assignee; not proof work occurred"})
+                titles = {f"Learning journal: {name} — {course.sprint}".casefold()
+                          for name in (student.id, student.name)}
+                if ("pull_request" not in issue and issue.get("state") == "closed"
+                        and issue.get("title", "").casefold() in titles
+                        and issue.get("user", {}).get("login", "").lower() == student.github_login.lower()):
+                    bodies = [issue.get("body") or ""]
+                    if issue.get("comments", 0):
+                        comments, comment_error = github.pages(
+                            f"/repos/{project.repository}/issues/{issue['number']}/comments")
+                        if comment_error:
+                            warnings.append(f"{student.id}: submission comments incomplete")
+                        bodies += [c.get("body") or "" for c in comments
+                                   if c.get("user", {}).get("login", "").lower() == student.github_login.lower()]
+                    for body in bodies:
+                        links = re.findall(r"https://github\.com/[^\s<>)]+/blob/[a-fA-F0-9]{40}/[^\s<>)]+\.md", body)
+                        # The convention identifies the human file, never an arbitrary AI brief.
+                        link = next((url for url in links if url.endswith("/reflection.md")), None)
+                        if link:
+                            try:
+                                source = parse_submission(link, project.repository)
+                            except ValueError:
+                                continue
+                            source["issue_url"] = issue.get("html_url")
+                            store.add_entry(f"submission/github/{student.id}/{issue['number']}/{source['sha']}",
+                                            student.id, course.sprint, "submission", "Closed submission issue", source)
             store.set(f"evidence/{course.sprint}/{student.id}",
                       {"collected_at": now.isoformat(), "since": since, "items": evidence[:100],
                        "warnings": [w for w in warnings if w.startswith(project.id + ":")]

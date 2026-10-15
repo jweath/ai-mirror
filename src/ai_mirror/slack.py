@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import re
+import threading
 import time
 
 import httpx
@@ -30,6 +32,8 @@ class SlackError(Exception):
 class Slack:
     def __init__(self, token):
         self.token = token
+        self._last_post = {}
+        self._post_lock = threading.Lock()
 
     def call(self, method, payload):
         if not self.token:
@@ -53,16 +57,26 @@ class Slack:
 
     def post(self, payload):
         fields = {k: payload[k] for k in ("channel", "text", "thread_ts") if payload.get(k)}
-        result = self.call("chat.postMessage", {**fields, "unfurl_links": False, "unfurl_media": False,
-                                               "parse": "none"})
+        # Slack normally permits roughly one message/second per channel. Partner
+        # feedback can target the same channel twice in a batch.
+        with self._post_lock:
+            wait = 1.1 - (time.monotonic() - self._last_post.get(payload["channel"], 0))
+            if wait > 0:
+                time.sleep(wait)
+            self._last_post[payload["channel"]] = time.monotonic()
+            result = self.call("chat.postMessage", {**fields, "unfurl_links": False, "unfurl_media": False,
+                                                   "parse": "none"})
         if not result.get("ts"):
             raise SlackError("missing_delivery_receipt", uncertain=True)
         return result
 
 
-def slack_link(workspace_id, channel, ts):
-    # A workspace-independent permalink; no need for a workspace-name lookup.
-    return f"https://app.slack.com/archives/{channel}/p{ts.replace('.', '')}?team={workspace_id}"
+def slack_link(workspace_id, channel, ts, workspace_url=None):
+    if workspace_url and re.fullmatch(r"https://[a-zA-Z0-9-]+\.slack\.com/?", workspace_url):
+        return f"{workspace_url.rstrip('/')}/archives/{channel}/p{ts.replace('.', '')}"
+    # If auth.test did not supply the workspace URL, link the channel and retain
+    # exact message/thread IDs in the source record rather than invent a permalink.
+    return f"https://slack.com/app_redirect?team={workspace_id}&channel={channel}"
 
 
 def plain_slack(text):
