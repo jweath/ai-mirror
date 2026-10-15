@@ -39,7 +39,7 @@ Each meeting is explicit:
 {"id": "s3-class-01", "at": "2026-10-15T14:35:00-04:00", "kind": "exit_ticket"}
 ```
 
-**That timestamp is an example, not a confirmed class time.** Use the actual end-of-class time. After daylight saving time changes, use the correct offset. Add `peer_review` dates separately. No schedule is inferred from “Tuesday/Thursday” or an old course page.
+The published ENTR 5000 class ends at **2:35 p.m. Eastern**. This October example therefore uses `-04:00`; November meetings use `-05:00`. Use the [confirmed sprint and deadline calendar](assignment.md#confirmed-calendar), and add explicit `peer_review` dates separately. A sprint boundary or journal deadline does not itself schedule a Slack message.
 
 Import as inactive, inspect the preview, verify ownership, and activate with a current `activated_at`. Activation checks workspace identity and that the bot belongs to each active channel. Then set `MIRROR_SEND_ENABLED=true`. Never activate fictional example IDs. Identity changes after records exist require deliberate data migration, preventing old entries or queued messages from silently moving to another person or project.
 

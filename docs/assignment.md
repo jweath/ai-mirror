@@ -34,7 +34,20 @@ Save `journal/<your-id>/<sprint>/reflection.md` in your project repository. Make
 
 Verify the links and close the issue as your submission receipt. To revise, add a new commit and comment on the same issue with the new link. With the service connected, `/mirror submit JOURNAL_COMMIT_URL ISSUE_URL` records the receipt for John. The bot is optional; the GitHub issue is sufficient. eLC only records grades.
 
-**Dates:** Sprint 3 begins October 15. Sprint endpoints, review dates, and final deadlines await the instructor's corrected schedule. No new deadline is implied by an old page or by the assistant. There is no fixed ten-customer-test quota in this workflow.
+## Confirmed calendar
+
+| Milestone | Confirmed date (2026) |
+| --- | --- |
+| Sprint 3 start / opening review | Thursday, October 15 |
+| Sprint 3 end / closing review | Thursday, October 29 |
+| Sprint 3 Build Journal due | Tuesday, November 3 |
+| Sprint 4 start / opening review | Tuesday, November 3 |
+| Sprint 4 end / closing review | Thursday, November 12 |
+| Demo Day / final presentations | Tuesday, November 17 |
+| Sprint 4 Build Journal due | Thursday, November 19 |
+| Individual Field Guide due | Tuesday, December 1, 11:59 p.m. Eastern |
+
+Build Journals follow the course schedule’s before-class deadline convention (1:15 p.m. Eastern). The Field Guide has the separate end-of-day deadline shown above. There is no fixed ten-customer-test quota in this workflow.
 
 ## What earns credit
 

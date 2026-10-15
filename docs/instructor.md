@@ -1,5 +1,9 @@
 # Running AI Mirror in the studio
 
+## Confirmed calendar
+
+Sprint 3 runs October 15–29, 2026; Sprint 4 runs November 3–12. Opening and closing reviews happen on those start/end dates. Sprint 3 and Sprint 4 Build Journals are due November 3 and November 19, respectively. Final presentations are at Demo Day on November 17. The individual Field Guide is due December 1 at 11:59 p.m. Eastern. Journal deadlines follow the existing before-class convention. Reviews are part of the start/end class meetings; they are distinct from the later journal submissions.
+
 ## Launch on October 15
 
 Take about 12 minutes in class. Introduce the Build Journal as a new practice starting now, then give students the single [portable file](../skills/ai-mirror/SKILL.md). Explain the division of labor: AI can collect evidence and suggest possibilities; the student's interpretation, goals, learning-check answer, and feedback are gym work. Students link the AI starting material, including suggestions they reject.
@@ -42,6 +46,6 @@ Use stable IDs for the workspace, students, project channels, and GitHub reposit
 
 Verify both owners and IDs before activation. Changing descriptions alone does not update the roster. The service does not overwrite channel descriptions automatically.
 
-Upload the private JSON in the instructor page, save it inactive, and preview the exact messages. Each meeting needs an ID, timestamp with UTC offset, and `exit_ticket` or `peer_review` kind. Use real class dates, accounting for holidays and daylight saving time. Dates are explicit because the course schedule is currently being corrected. Activation checks the Slack workspace and bot channel membership; it never backfills old reminders.
+Upload the private JSON in the instructor page, save it inactive, and preview the exact messages. Each meeting needs an ID, timestamp with UTC offset, and `exit_ticket` or `peer_review` kind. Use real class dates, accounting for holidays and daylight saving time. Use the confirmed calendar above; each timestamp remains explicit so class exceptions and daylight saving time are handled correctly. Activation checks the Slack workspace and bot channel membership; it never backfills old reminders.
 
 When starting Sprint 4, preserve student/project IDs, change `sprint`, replace meetings with confirmed Sprint 4 dates, and use a fresh activation timestamp. Earlier records remain under their original sprint. Keep the longer-term goal and unresolved questions in the student journals. Do not reuse the database for a different course offering.

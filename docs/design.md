@@ -11,7 +11,7 @@ The design starts from what the class actually did, then uses a small number of 
 | [September 24](https://jweath.com/entr/5000/notes/2026-09-24/): GitHub issues and Slack integration | Collect evidence from existing tools; an issue is a plan, not proof work happened |
 | [October 1](https://jweath.com/entr/5000/notes/2026-10-01/): small real tests and inspection of model outputs | Distinguish discovery, demos, checks, and customer value |
 | [October 6](https://jweath.com/entr/5000/notes/2026-10-06/): 3.5-minute benefit-first reports | Presentation mode assembles evidence and an outline while the student writes the narrative |
-| [October 13](https://jweath.com/entr/5000/notes/2026-10-13/): Sprint 3 begins October 15 and connects to Sprint 4 | Begin now; carry the longer-term goal forward; leave unsettled boundaries explicit |
+| [October 13](https://jweath.com/entr/5000/notes/2026-10-13/): Sprint 3 begins October 15 and connects to Sprint 4 | Begin now; carry the longer-term goal forward; use the instructor-confirmed calendar in the assignment |
 
 The existing [Build Journal](https://jweath.com/entr/5000/assignments/build-journal/) supplies Hypothesis/Build/Measure/Learn, pivotal prompts/workflows, and evidence/growth standards. The instructor confirmed it had not yet been assigned. The new assignment keeps its 10-point allocation and distributes it across the two remaining sprint wrap-ups. This is a design choice for the launch, not a claim about past submissions.
 
