@@ -20,7 +20,7 @@ No model-generated feedback is posted automatically. Human approval names the de
 
 ## Retention and corrections
 
-Learning text, evidence snapshots, and digests are retained for the configured period (90 days by default). Delivery identity/hash tombstones remain to prevent duplicate sends; sent/cancelled/expired message content is removed after retention. Uncertain delivery payloads remain until reconciled. Roster metadata remains until the course database is retired. Backups are private and require their own retention schedule.
+Learning text, evidence snapshots, and digests are retained for the configured period (90 days by default). Delivery identity/hash tombstones remain to prevent duplicate sends; sent/cancelled/expired message content is removed after retention. Uncertain delivery payloads remain until reconciled. Roster metadata remains until the course database is retired. Backups are private and require their own retention schedule. The initial Railway deployment uses daily backups retained for six days, so recently removed records can remain in those snapshots until expiry.
 
 Edits/deletions to captured Slack replies update/remove the current entry when Slack delivers the event. Already-created private digests are historical snapshots and may still contain the earlier text until deleted or aged out. GitHub exact-version submissions intentionally remain historical; later revisions get a new link. Ask the instructor to remove historical copies if a sensitive disclosure needs removal sooner.
 

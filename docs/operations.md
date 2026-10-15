@@ -71,7 +71,7 @@ Use a consistent SQLite backup:
 ai-mirror backup /private/backup-location/mirror-2026-10-15.db
 ```
 
-This command operates on `MIRROR_DB_PATH` on the host where it runs. On Railway, use a service shell or a private volume backup; do not assume the local laptop database is production. Keep backups private and apply an appropriate expiry. The initial deployment does not itself establish an ongoing backup policy—configure Railway volume backups before live use.
+This command operates on `MIRROR_DB_PATH` on the host where it runs. On Railway, use a service shell or a private volume backup; do not assume the local laptop database is production. Keep backups private and apply an appropriate expiry. The initial AI Mirror deployment has a verified daily Railway volume-backup schedule with six-day retention and an initial snapshot created before student records were loaded. A successful snapshot is not a production restore rehearsal. Configure and verify a separate backup policy for any new deployment.
 
 Restore only with the service stopped and to a fresh database path:
 
