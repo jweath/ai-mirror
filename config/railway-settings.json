@@ -1,0 +1,11 @@
+{
+  "description": "Reference values for configuring only the AI Mirror service through Railway settings/API; this file is not auto-applied.",
+  "dockerfilePath": "Dockerfile",
+  "healthcheckPath": "/healthz",
+  "healthcheckTimeout": 60,
+  "restartPolicyType": "ON_FAILURE",
+  "restartPolicyMaxRetries": 3,
+  "replicas": 1,
+  "volumeMountPath": "/data",
+  "targetPort": 8000
+}

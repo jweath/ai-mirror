@@ -2,7 +2,9 @@
 
 ## Deployment
 
-The service uses the repository Dockerfile and a persistent volume mounted at `/data`. Set `MIRROR_DB_PATH=/data/mirror.db`, `MIRROR_ASSET_ROOT=/app`, `PORT=8000`, and a randomly generated `MIRROR_ADMIN_TOKEN` of at least 32 characters. Use one replica and one Uvicorn worker. The deployment health check is `/healthz`.
+The service uses the repository Dockerfile and a persistent volume mounted at `/data`. Set `MIRROR_DB_PATH=/data/mirror.db`, `MIRROR_ASSET_ROOT=/app`, `PORT=8000`, and a randomly generated `MIRROR_ADMIN_TOKEN` of at least 32 characters. Use one replica and one Uvicorn worker. Set the service health check to `/healthz` with a 60-second timeout and restart policy `ON_FAILURE` with three retries.
+
+These settings are configured directly on the AI Mirror service; [config/railway-settings.json](../config/railway-settings.json) records the reference values but is not auto-applied. The repository intentionally avoids deprecated `railway.toml` Config as Code. Do not apply a whole-project infrastructure specification to the shared instOS project just to deploy this one service. [Railway's current infrastructure guidance](https://docs.railway.com/infrastructure-as-code) explains the migration and named partials if this service later gains an IaC definition.
 
 The initial deployment is a separate `ai-mirror` service inside the existing instOS Railway project. It has its own volume; it does not use the Participation database or worker. Sending begins disabled, with no real roster loaded. The public site/download needs no Slack credentials. The instructor page requires its token.
 
