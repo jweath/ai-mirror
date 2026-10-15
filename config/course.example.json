@@ -1,0 +1,24 @@
+{
+  "id": "entr-5000-fall-2026",
+  "name": "ENTR 5000 · AI Mirror",
+  "workspace_id": "TDEMO",
+  "timezone": "America/New_York",
+  "sprint": "sprint-3",
+  "instructor_slack_ids": ["UINSTRUCTOR"],
+  "active": false,
+  "activated_at": null,
+  "github_enabled": false,
+  "retention_days": 90,
+  "students": [
+    {"id": "alex", "name": "Alex (example)", "slack_id": "UALEX", "github_login": "example-alex", "project_id": "garden"},
+    {"id": "sam", "name": "Sam (example)", "slack_id": "USAM", "github_login": "example-sam", "project_id": "garden"},
+    {"id": "lee", "name": "Lee (example)", "slack_id": "ULEE", "github_login": "example-lee", "project_id": "repair"},
+    {"id": "jo", "name": "Jo (example)", "slack_id": "UJO", "github_login": "example-jo", "project_id": "food"}
+  ],
+  "projects": [
+    {"id": "garden", "name": "Garden (example)", "channel_id": "CGARDEN", "repository": "example/garden"},
+    {"id": "repair", "name": "Repair (example)", "channel_id": "CREPAIR", "repository": "example/repair"},
+    {"id": "food", "name": "Food (example)", "channel_id": "CFOOD", "repository": "example/food"}
+  ],
+  "meetings": []
+}

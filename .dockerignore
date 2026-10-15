@@ -1,0 +1,13 @@
+.git
+.operator
+.operator-shared
+.venv
+.env*
+.local
+data
+work
+outputs
+__pycache__
+*.db*
+config/course.json
+config/roster*.json

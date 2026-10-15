@@ -1,0 +1,15 @@
+name: Report a problem
+description: Report a workflow or service issue without private student data
+labels: []
+body:
+  - type: textarea
+    id: behavior
+    attributes:
+      label: What happened?
+      description: Include expected behavior and steps to reproduce. Do not include student reflections, tokens, private roster data, or customer details.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit

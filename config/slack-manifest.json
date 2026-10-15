@@ -1,0 +1,14 @@
+{
+  "display_information": {"name": "AI Mirror", "description": "Human reflection, AI evidence, studio feedback", "background_color": "#27332c"},
+  "features": {
+    "bot_user": {"display_name": "AI Mirror", "always_online": false},
+    "slash_commands": [{"command": "/mirror", "description": "Exit ticket, private muddy point, or journal receipt", "usage_hint": "help | exit ... | muddy ... | submit URL ISSUE_URL | status", "url": "https://YOUR-SERVICE.up.railway.app/slack/commands", "should_escape": false}]
+  },
+  "oauth_config": {"scopes": {"bot": ["commands", "chat:write", "channels:read", "groups:read", "channels:history", "groups:history"]}},
+  "settings": {
+    "event_subscriptions": {"request_url": "https://YOUR-SERVICE.up.railway.app/slack/events", "bot_events": ["message.channels", "message.groups"]},
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false,
+    "token_rotation_enabled": false
+  }
+}
