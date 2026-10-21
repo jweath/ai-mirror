@@ -30,7 +30,7 @@ async function refresh(quiet = false) {
     $('sync').textContent = 'Board checked ' + dateTime(snapshot.generated_at);
     $('setup').hidden = !!snapshot.course && !!snapshot.active;
     $('setup').textContent = !snapshot.course ? 'Import the verified roster in the instructor workspace to populate this board.' : 'Course is inactive. Saved records are visible; automatic collection is paused.';
-    if (changed) render(); if (!quiet) say('Board updated.');
+    if (changed) render(); if (!quiet) say('');
   } finally { loading = false; }
 }
 function hasGap(project) { return !project.collection_enabled || project.evidence_stale || !project.evidence?.complete; }
