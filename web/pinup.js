@@ -26,7 +26,7 @@ async function refresh(quiet = false) {
     if (token !== session || !token) return;
     const changed = JSON.stringify(snapshot?.projects) !== JSON.stringify(data.projects);
     snapshot = data; $('login').hidden = true; $('workspace').hidden = false;
-    $('course-label').textContent = snapshot.course ? snapshot.course + ' · ' + snapshot.sprint : 'Course setup needed';
+    $('course-label').textContent = snapshot.course ? snapshot.sprint.replace(/^sprint-/, 'Sprint ') : 'Course setup needed';
     $('sync').textContent = 'Board checked ' + dateTime(snapshot.generated_at);
     $('setup').hidden = !!snapshot.course && !!snapshot.active;
     $('setup').textContent = !snapshot.course ? 'Import the verified roster in the instructor workspace to populate this board.' : 'Course is inactive. Saved records are visible; automatic collection is paused.';
@@ -45,14 +45,14 @@ function render() {
   for (const project of projects) {
     const card = el('article', undefined, 'project-card'); card.append(el('h2', project.name), el('p', project.owners.map(s => s.name).join(' · ') || 'Owner mapping missing', 'owners'));
     const links = el('div', undefined, 'project-links');
-    for (const [url, title, cls] of [[project.pin.live_url, 'Open product ↗', 'product-link'], [project.repository_url, 'GitHub'], [project.issues_url, 'Issues'], [project.channel_url, 'Slack']]) { const a = link(url, title, cls); if (a) links.append(a); }
+    for (const [url, title, cls] of [[project.pin.live_url, 'Open product', 'product-link'], [project.repository_url, 'GitHub'], [project.issues_url, 'Issues'], [project.channel_url, 'Slack']]) { const a = link(url, title, cls); if (a) links.append(a); }
     card.append(links);
     for (const [label, text] of [['Desired outcome', project.pin.goal], ['Next useful test', project.pin.next_test], ['Commitment', project.pin.commitment]]) card.append(el('h3', label), el('p', text || 'No statement recorded', 'pin-text' + (text ? '' : ' missing')));
     if (project.pin.commitment_date) card.append(el('p', 'Stated date: ' + dateOnly(project.pin.commitment_date), 'fine'));
     if (!project.pin.live_url) card.append(el('p', 'Testable build link not recorded.', 'fine'));
     const source = el('div', undefined, 'provenance');
     const sourceLabel = project.pin.source_kind === 'student_statement' ? 'Student statement' : 'Instructor note';
-    const sourceLink = link(project.pin.source_url, sourceLabel + ' ↗');
+    const sourceLink = link(project.pin.source_url, sourceLabel);
     source.append(sourceLink || el('span', 'Pin not set'));
     const edit = el('button', 'Edit pin', 'secondary edit-pin'); edit.addEventListener('click', () => editPin(project)); source.append(edit); card.append(source);
     if (project.pin.source_url) card.append(el('p', 'Source: ' + dateTime(project.pin.source_at) + ' · saved ' + dateTime(project.pin_updated_at), 'fine'));
@@ -70,7 +70,7 @@ function render() {
     if (project.evidence) git.append(el('p', 'Rolling window since ' + dateTime(project.evidence.since) + '. Showing up to eight recent items.', 'fine'));
     card.append(git);
     const updates = el('details'); updates.dataset.key = project.id + '/slack'; updates.open = opened.has(updates.dataset.key); updates.append(el('summary', 'Captured project updates'));
-    for (const entry of project.updates) { const box = el('div', undefined, 'update'); const owner = project.owners.find(s => s.id === entry.student_id); box.append(el('strong', owner?.name || entry.student_id), el('p', entry.text), el('span', 'Captured ' + dateTime(entry.created_at) + ' ', 'fine')); const a = link(entry.source.url, 'Source ↗'); if (a) box.append(a); updates.append(box); }
+    for (const entry of project.updates) { const box = el('div', undefined, 'update'); const owner = project.owners.find(s => s.id === entry.student_id); box.append(el('strong', owner?.name || entry.student_id), el('p', entry.text), el('span', 'Captured ' + dateTime(entry.created_at) + ' ', 'fine')); const a = link(entry.source.url, 'Source'); if (a) box.append(a); updates.append(box); }
     if (!project.updates.length) updates.append(el('p', 'No scoped replies captured. Open Slack for the full conversation.', 'fine'));
     card.append(updates); $('projects').append(card);
   }

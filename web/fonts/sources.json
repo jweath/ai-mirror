@@ -1,0 +1,30 @@
+{
+  "retrieved": "2026-10-07",
+  "cssSource": "https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400..700&family=Public+Sans:ital,wght@0,100..900;1,100..900&display=swap",
+  "files": [
+    {
+      "family": "Familjen Grotesk",
+      "style": "normal",
+      "asset": "familjen-grotesk-normal-latin.woff2",
+      "source": "https://fonts.gstatic.com/s/familjengrotesk/v11/Qw3GZR9ZHiDnImG6-NEMQ41wby8WbHoEj7E49PA.woff2",
+      "bytes": 18884,
+      "sha256": "5c2a822104a1c4d658b6f070043548efbe19243aff2aab567494877056527f17"
+    },
+    {
+      "family": "Public Sans",
+      "style": "italic",
+      "asset": "public-sans-italic-latin.woff2",
+      "source": "https://fonts.gstatic.com/s/publicsans/v21/ijwTs572Xtc6ZYQws9YVwnNDTJzax8s3Jik.woff2",
+      "bytes": 28356,
+      "sha256": "03c56a19a5ee626ef9007edcfca457e57eda0f5d4c8df0f713fbeb6e155b1b00"
+    },
+    {
+      "family": "Public Sans",
+      "style": "normal",
+      "asset": "public-sans-normal-latin.woff2",
+      "source": "https://fonts.gstatic.com/s/publicsans/v21/ijwRs572Xtc6ZYQws9YVwnNGfJ7QwOk1.woff2",
+      "bytes": 26636,
+      "sha256": "c1b6da516e0062e9c2f341b3a51dd2d621d946da72f06c6cfe05fd9d2dd8622d"
+    }
+  ]
+}
