@@ -195,8 +195,10 @@ class Store:
             # Keep delivery IDs/hashes as tombstones so old jobs cannot be replayed.
             db.execute("""UPDATE outbox SET payload='{}',detail='Content removed by retention policy'
                           WHERE created_at<? AND status IN ('sent','cancelled','expired')""", (cutoff,))
-            for row in db.execute("SELECT key,value FROM settings WHERE key LIKE 'evidence/%'").fetchall():
-                if json.loads(row["value"]).get("collected_at", "") < cutoff:
+            for row in db.execute("""SELECT key,value FROM settings WHERE key LIKE 'evidence/%'
+                                   OR key LIKE 'project_evidence/%' OR key LIKE 'pin/%'""").fetchall():
+                value = json.loads(row["value"])
+                if value.get("collected_at", value.get("updated_at", "")) < cutoff:
                     db.execute("DELETE FROM settings WHERE key=?", (row["key"],))
 
     def backup(self, target):

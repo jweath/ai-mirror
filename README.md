@@ -18,6 +18,8 @@ The assistant can provide evidence and suggestions first. Students preserve that
 
 ## For the instructor
 
+The [project pinup](docs/project-pinup.md) adds a private project board at `/pinup`: source-backed goals, next tests and commitments beside product links, GitHub activity, and captured project updates. This first slice uses the existing course map and collection loop; class/public access is still a separate rollout step.
+
 The [deployed workspace](https://ai-mirror-production-9c9f.up.railway.app/instructor) offers:
 
 - A private roster and explicit schedule, with a preview before activation.

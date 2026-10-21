@@ -23,10 +23,16 @@ class GitHub:
     def pages(self, path, params=None):
         items = []
         for page in range(1, 6):
-            response = self.client.get(path, params={**(params or {}), "per_page": 100, "page": page})
+            try:
+                response = self.client.get(path, params={**(params or {}), "per_page": 100, "page": page})
+            except httpx.HTTPError:
+                return items, "GitHub could not be reached; collection incomplete"
             if response.status_code != 200:
                 return items, f"GitHub HTTP {response.status_code}; collection incomplete"
-            rows = response.json()
+            try:
+                rows = response.json()
+            except ValueError:
+                return items, "Unexpected GitHub response; collection incomplete"
             if not isinstance(rows, list):
                 return items, "Unexpected GitHub response; collection incomplete"
             items.extend(rows)
@@ -57,12 +63,33 @@ def collect_github(store, github, now=None):
     since = (now - timedelta(days=14)).isoformat()
     warnings = []
     for project in course.projects:
+        project_warnings = []
         commits, error = github.pages(f"/repos/{project.repository}/commits", {"since": since})
         if error:
             warnings.append(f"{project.id}: {error}")
+            project_warnings.append(error)
         issues, error = github.pages(f"/repos/{project.repository}/issues", {"since": since, "state": "all"})
         if error:
             warnings.append(f"{project.id}: {error}")
+            project_warnings.append(error)
+        # Repository activity stays at project level, including unlinked authors.
+        # It is evidence of changes, never a student effort/learning score.
+        project_items = [{"type": "commit", "url": c.get("html_url"), "sha": c.get("sha"),
+                          "text": c.get("commit", {}).get("message", "")[:500],
+                          "at": c.get("commit", {}).get("committer", {}).get("date"),
+                          "author": (c.get("author") or {}).get("login")}
+                         for c in commits]
+        project_items += [{"type": "pull_request" if "pull_request" in i else "issue",
+                           "url": i.get("html_url"), "text": i.get("title", "")[:500],
+                           "state": i.get("state"), "at": i.get("updated_at"),
+                           "author": (i.get("user") or {}).get("login")}
+                          for i in issues]
+        project_items.sort(key=lambda item: item["at"] or "", reverse=True)
+        if len(project_items) > 100:
+            project_warnings.append("Limited to 100 recent project items")
+        store.set(f"project_evidence/{course.sprint}/{project.id}",
+                  {"collected_at": now.isoformat(), "since": since, "items": project_items[:100],
+                   "warnings": project_warnings, "complete": not project_warnings})
         members = [s for s in course.students if s.project_id == project.id]
         for student in members:
             evidence = []

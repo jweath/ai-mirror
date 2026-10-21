@@ -17,6 +17,7 @@ from . import __version__
 from .config import ROOT, Course, Settings, StrictModel
 from .digest import generate
 from .evidence import GitHub, collect_github
+from .pinup import PinConflict, PinUpdate, board, save_pin
 from .slack import Slack, SlackError, plain_slack, verify_signature
 from .store import Store, content_hash, now_iso
 from .workflow import deliver_one, enqueue_due, handle_command, handle_event, plan
@@ -144,6 +145,23 @@ def create_app(settings=None, store=None, slack=None):
     @app.get("/instructor")
     def instructor():
         return FileResponse(ROOT / "web/instructor.html")
+
+    @app.get("/pinup")
+    def pinup():
+        return FileResponse(ROOT / "web/pinup.html")
+
+    @app.get("/api/pinup", dependencies=[Depends(admin)])
+    def project_board():
+        return board(store)
+
+    @app.put("/api/pinup/projects/{project_id}", dependencies=[Depends(admin)])
+    def update_project_pin(project_id: str, update: PinUpdate):
+        try:
+            return save_pin(store, project_id, update)
+        except KeyError:
+            raise HTTPException(404, "Project is not in the configured course") from None
+        except PinConflict as exc:
+            raise HTTPException(409, str(exc)) from None
 
     @app.get("/skill.md")
     def skill():
