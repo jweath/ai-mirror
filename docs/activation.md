@@ -2,7 +2,15 @@
 
 The student file can be used immediately. The shared service is deployed in a safe setup state; real-class messages and collection wait for the following items. Complete them together before the first live run.
 
-## Required for class automation
+## Course project dashboard
+
+The class board lives at `https://jweath.com/entr/5000/2026/fall/`. It uses Slack OpenID Connect and an explicit course roster. Set `MIRROR_DASHBOARD_URL`, `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, and a new random `MIRROR_SESSION_SECRET` of at least 32 characters; register the exact `/auth/callback` URL in the Slack app. Keep bot installation scopes separate from the `openid profile` sign-in request. Never put app secrets or the instructor token in the browser bundle.
+
+Import the real course map as inactive with `github_enabled` and `slack_enabled` enabled. The read-only collectors run independently of messaging activation: GitHub hourly without a token, every 30 minutes with one; Slack history every 10 minutes, with signed events between polls. Invite the existing Mirror bot to the registered channels, set its bot token/signing secret, then verify `/slack/events`. Leave messaging disabled until its separate schedule and rehearsal are approved.
+
+Students on the roster can view the shared board. Only pins marked `shared` are included; private notes, journals, muddy points, and digests are excluded. Instructor sessions can edit pins and collect evidence. Roster removal revokes access on the next request. A temporary `viewer_slack_ids` entry grants class viewing without inventing project ownership. Unknown repository or GitHub identities remain unset and produce visible gaps.
+
+## Required for class messaging automation
 
 1. **Connect the AI Mirror Slack app.** Create/install the app from the generated manifest in the course workspace, set its bot token and signing secret in the `ai-mirror` Railway service, finish event URL verification, and invite it to the project channels. The existing attendance app has different scopes and is not reused. [Connection steps](operations.md#slack-connection).
 2. **Verify the student/project map.** Supply each student's name, stable student ID, Slack member ID, GitHub login, project, project channel ID, and repository. Include both owners of the partner project. Classmate membership is not project ownership. Channel descriptions should display owners for humans; the private roster is authoritative.

@@ -22,6 +22,7 @@ def safe_url(value):
 
 
 class ProjectPin(StrictModel):
+    shared: bool = False
     goal: str = Field(default="", max_length=1200)
     next_test: str = Field(default="", max_length=1200)
     commitment: str = Field(default="", max_length=600)
@@ -88,7 +89,7 @@ def save_pin(store, project_id, update, now=None):
     return {**value, "revision": content_hash(value)}
 
 
-def board(store, now=None):
+def board(store, now=None, shared=False):
     now = now or datetime.now(timezone.utc)
     course = store.course()
     if not course:
@@ -99,17 +100,19 @@ def board(store, now=None):
         owners = [s for s in course.students if s.project_id == project.id]
         ids = {s.id for s in owners}
         pin = store.get(f"pin/{course.sprint}/{project.id}")
+        if shared and pin and not pin["pin"].get("shared"):
+            pin = None
         evidence = store.get(f"project_evidence/{course.sprint}/{project.id}")
         captured = [{k: entry[k] for k in ("id", "student_id", "text", "source", "created_at")}
                     for entry in entries if entry["student_id"] in ids
-                    and not entry["private"] and entry["kind"] == "exit_ticket"][:12]
+                    and not entry["private"] and entry["kind"] in ("exit_ticket", "project_update")][:12]
         checked = evidence.get("collected_at") if evidence else None
         stale = not checked or datetime.fromisoformat(checked) < now - timedelta(hours=48)
         pin_age = (pin["pin"].get("source_at") or pin["updated_at"]) if pin else None
         projects.append({
             "id": project.id, "name": project.name,
-            "repository_url": f"https://github.com/{project.repository}",
-            "issues_url": f"https://github.com/{project.repository}/issues",
+            "repository_url": f"https://github.com/{project.repository}" if project.repository else None,
+            "issues_url": f"https://github.com/{project.repository}/issues" if project.repository else None,
             "channel_url": f"https://app.slack.com/client/{course.workspace_id}/{project.channel_id}",
             "owners": [{"id": s.id, "name": s.name} for s in owners],
             "pin": pin["pin"] if pin else ProjectPin().model_dump(mode="json"),
@@ -118,6 +121,8 @@ def board(store, now=None):
             "revision": content_hash(pin) if pin else None,
             "evidence": evidence, "evidence_stale": stale,
             "collection_enabled": course.github_enabled, "updates": captured,
+            "slack_collection": store.get(f"slack_collection/{project.id}"),
         })
     return {"course": course.name, "sprint": course.sprint, "projects": projects,
-            "active": course.active, "generated_at": now.isoformat()}
+            "active": course.active, "github_enabled": course.github_enabled,
+            "slack_enabled": course.slack_enabled, "generated_at": now.isoformat()}

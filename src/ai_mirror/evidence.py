@@ -63,6 +63,13 @@ def collect_github(store, github, now=None):
     since = (now - timedelta(days=14)).isoformat()
     warnings = []
     for project in course.projects:
+        if not project.repository:
+            message = "Repository link has not been verified"
+            warnings.append(f"{project.id}: {message}")
+            store.set(f"project_evidence/{course.sprint}/{project.id}",
+                      {"collected_at": now.isoformat(), "since": since, "items": [],
+                       "warnings": [message], "complete": False})
+            continue
         project_warnings = []
         commits, error = github.pages(f"/repos/{project.repository}/commits", {"since": since})
         if error:
@@ -92,6 +99,8 @@ def collect_github(store, github, now=None):
                    "warnings": project_warnings, "complete": not project_warnings})
         members = [s for s in course.students if s.project_id == project.id]
         for student in members:
+            if not student.github_login:
+                continue
             evidence = []
             for commit in commits:
                 login = (commit.get("author") or {}).get("login", "")
