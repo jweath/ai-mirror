@@ -19,7 +19,7 @@ class Student(StrictModel):
     id: str = Field(pattern=r"^[a-z0-9][a-z0-9_-]{0,63}$")
     name: str = Field(min_length=1, max_length=100)
     slack_id: str = Field(pattern=r"^[UW][A-Z0-9]+$")
-    github_login: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9-]{0,38}$")
+    github_login: str | None = Field(default=None, pattern=r"^[A-Za-z0-9][A-Za-z0-9-]{0,38}$")
     project_id: str
 
 
@@ -27,7 +27,7 @@ class Project(StrictModel):
     id: str = Field(pattern=r"^[a-z0-9][a-z0-9_-]{0,63}$")
     name: str = Field(min_length=1, max_length=100)
     channel_id: str = Field(pattern=r"^[CG][A-Z0-9]+$")
-    repository: str = Field(pattern=r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+    repository: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 
 
 class Meeting(StrictModel):
@@ -50,12 +50,14 @@ class Course(StrictModel):
     timezone: str = "America/New_York"
     sprint: str = Field(pattern=r"^[a-z0-9_-]+$")
     instructor_slack_ids: list[str] = Field(min_length=1)
+    viewer_slack_ids: list[str] = Field(default_factory=list)
     students: list[Student] = Field(min_length=1, max_length=300)
     projects: list[Project] = Field(min_length=1, max_length=300)
     meetings: list[Meeting] = Field(default_factory=list)
     active: bool = False
     activated_at: datetime | None = None
     github_enabled: bool = False
+    slack_enabled: bool = False
     retention_days: int = Field(default=90, ge=7, le=730)
 
     @model_validator(mode="after")
@@ -63,7 +65,7 @@ class Course(StrictModel):
         ZoneInfo(self.timezone)
         for values, label in [([s.id for s in self.students], "student IDs"),
                               ([s.slack_id for s in self.students], "Slack IDs"),
-                              ([s.github_login.lower() for s in self.students], "GitHub accounts"),
+                              ([s.github_login.lower() for s in self.students if s.github_login], "GitHub accounts"),
                               ([p.id for p in self.projects], "project IDs"),
                               ([p.channel_id for p in self.projects], "project channels"),
                               ([m.id for m in self.meetings], "meeting IDs")]:
@@ -76,6 +78,10 @@ class Course(StrictModel):
             raise ValueError("instructor_slack_ids must contain Slack member IDs")
         if set(self.instructor_slack_ids) & {s.slack_id for s in self.students}:
             raise ValueError("instructors and students need distinct IDs")
+        if (any(not re.fullmatch(r"[UW][A-Z0-9]+", s) for s in self.viewer_slack_ids)
+                or len(self.viewer_slack_ids) != len(set(self.viewer_slack_ids))
+                or set(self.viewer_slack_ids) & set(self.instructor_slack_ids)):
+            raise ValueError("viewer_slack_ids must contain distinct non-instructor Slack member IDs")
         if self.active and (not self.activated_at or self.activated_at.utcoffset() is None):
             raise ValueError("activation requires an explicit timezone-aware activated_at; no backfill")
         return self
@@ -100,6 +106,10 @@ class Settings:
     digest_provider: str = "extractive"
     background_enabled: bool = True
     public_url: str = "http://127.0.0.1:8000"
+    dashboard_url: str = "https://jweath.com/entr/5000/2026/fall"
+    session_secret: str = ""
+    slack_client_id: str = ""
+    slack_client_secret: str = ""
 
     @classmethod
     def from_env(cls):
@@ -115,6 +125,10 @@ class Settings:
             digest_provider=os.getenv("MIRROR_DIGEST_PROVIDER", "extractive"),
             background_enabled=os.getenv("MIRROR_BACKGROUND_ENABLED", "true").lower() == "true",
             public_url=os.getenv("MIRROR_PUBLIC_URL", "http://127.0.0.1:8000").rstrip("/"),
+            dashboard_url=os.getenv("MIRROR_DASHBOARD_URL", "https://jweath.com/entr/5000/2026/fall").rstrip("/"),
+            session_secret=os.getenv("MIRROR_SESSION_SECRET", ""),
+            slack_client_id=os.getenv("SLACK_CLIENT_ID", ""),
+            slack_client_secret=os.getenv("SLACK_CLIENT_SECRET", ""),
         )
 
 

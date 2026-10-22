@@ -16,3 +16,10 @@ starlette==1.8.0
 typing-inspection==0.4.4
 typing_extensions==4.16.0
 uvicorn==0.54.0
+authlib==1.9.1
+cffi==2.1.1
+cryptography==50.0.2
+itsdangerous==2.2.0
+joserfc==1.7.7
+pycparser==3.11
+python-multipart==0.0.32

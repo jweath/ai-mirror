@@ -15,9 +15,12 @@ from starlette.concurrency import run_in_threadpool
 
 from . import __version__
 from .config import ROOT, Course, Settings, StrictModel
+from .dashboard import create_dashboard
 from .digest import generate
 from .evidence import GitHub, collect_github
+from .pinup import PinConflict, PinUpdate, board, save_pin
 from .slack import Slack, SlackError, plain_slack, verify_signature
+from .slack_evidence import collect_slack, project_event
 from .store import Store, content_hash, now_iso
 from .workflow import deliver_one, enqueue_due, handle_command, handle_event, plan
 
@@ -48,12 +51,17 @@ def tick(store, settings, slack):
         return
     now = datetime.now(timezone.utc)
     last = store.get("last_github_collection", {}).get("at")
-    if course.active and course.github_enabled and (not last or datetime.fromisoformat(last) < now - timedelta(hours=6)):
+    interval = timedelta(minutes=30 if settings.github_token else 60)
+    if course.github_enabled and (not last or datetime.fromisoformat(last) < now - interval):
         github = GitHub(settings.github_token)
         try:
             collect_github(store, github, now)
         finally:
             github.close()
+    last_slack = store.get("last_slack_collection", {}).get("at")
+    if (course.slack_enabled and settings.slack_token
+            and (not last_slack or datetime.fromisoformat(last_slack) < now - timedelta(minutes=10))):
+        collect_slack(store, slack, now)
     for meeting in course.meetings:
         key = f"daily_digest/{course.sprint}/{meeting.id}"
         if (course.active and meeting.kind == "exit_ticket" and course.activated_at
@@ -144,6 +152,23 @@ def create_app(settings=None, store=None, slack=None):
     @app.get("/instructor")
     def instructor():
         return FileResponse(ROOT / "web/instructor.html")
+
+    @app.get("/pinup")
+    def pinup():
+        return FileResponse(ROOT / "web/pinup.html")
+
+    @app.get("/api/pinup", dependencies=[Depends(admin)])
+    def project_board():
+        return board(store)
+
+    @app.put("/api/pinup/projects/{project_id}", dependencies=[Depends(admin)])
+    def update_project_pin(project_id: str, update: PinUpdate):
+        try:
+            return save_pin(store, project_id, update)
+        except KeyError:
+            raise HTTPException(404, "Project is not in the configured course") from None
+        except PinConflict as exc:
+            raise HTTPException(409, str(exc)) from None
 
     @app.get("/skill.md")
     def skill():
@@ -304,6 +329,7 @@ def create_app(settings=None, store=None, slack=None):
         if payload.get("type") == "url_verification":
             return {"challenge": payload.get("challenge")}
         handle_event(store, payload)
+        project_event(store, payload)
         return {"ok": True}
 
     @app.post("/slack/commands")
@@ -314,6 +340,7 @@ def create_app(settings=None, store=None, slack=None):
             raise HTTPException(400, "Missing Slack request identity")
         return handle_command(store, form)
 
+    app.mount("/course", create_dashboard(settings, store), name="course")
     app.mount("/assets", StaticFiles(directory=ROOT / "web"), name="assets")
     return app
 

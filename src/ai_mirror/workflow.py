@@ -168,6 +168,8 @@ def handle_event(store, payload):
 
 
 def parse_submission(text, repository):
+    if not repository:
+        raise ValueError("Verify the project repository before submitting a journal link")
     parts = text.split()
     if not parts:
         raise ValueError("Supply a GitHub file URL pinned to a full 40-character commit SHA")

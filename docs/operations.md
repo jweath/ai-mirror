@@ -85,6 +85,14 @@ The default retention window is 90 days. Current learning entries, evidence snap
 
 ## API for instOS
 
-All `/api/*` routes require `Authorization: Bearer <instructor token>`. No token belongs in a URL. Supported routes cover status, course import, preview, entries, GitHub collection, digest generation/retrieval, feedback approval, and recovery. The browser uses the same API. Instructor credentials are deliberately separate from the attendance service.
+The original `/api/*` routes require `Authorization: Bearer <instructor token>`. No token belongs in a URL. Supported routes cover status, course import, preview, entries, GitHub collection, digest generation/retrieval, feedback approval, and recovery. The browser uses the same API. Instructor credentials are deliberately separate from the attendance service.
 
 The current API is for one instructor/course deployment, not an institutional multi-tenant service. Add per-user authorization and shared database leases before expanding that boundary.
+
+## Course dashboard sessions
+
+The course site proxies only `/entr/5000/2026/fall/*` to Mirror's `/course/*`. Assets, API calls, OAuth callbacks, and cookies remain under that course path. The proxy must precede the static `/entr/*` handler. The separate instructor workspace and legacy bearer API remain on Mirror's origin.
+
+Slack OIDC uses Authlib to verify the provider signature, issuer, audience, expiry, state, and nonce. A matching workspace alone grants no access: the Slack member ID must be an instructor, student, or explicitly listed course viewer. OAuth state has a secure, HttpOnly, ten-minute SameSite=None cookie because Slack posts the callback across sites. The actual twelve-hour session uses a separate Secure, HttpOnly, SameSite=Lax cookie and an opaque ID; only its hash is stored in SQLite. Provider tokens are not retained. Mutations require both the configured Origin and a session CSRF token. Logout deletes the server session.
+
+After credential exposure, rotate `MIRROR_ADMIN_TOKEN` and `MIRROR_SESSION_SECRET` before loading class records, and replace any exposed provider credentials. Changing the admin token invalidates token-derived fallback sessions; changing the session signing secret invalidates pending OAuth flows. Previously issued Slack sessions last at most twelve hours or can be cleared from `browser_sessions` during incident recovery. Do not log credentials, callback bodies, or provider error bodies.
