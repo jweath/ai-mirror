@@ -118,7 +118,9 @@ def create_app(settings=None, store=None, slack=None):
         if size > 1_000_000:
             return JSONResponse({"detail": "Body too large"}, status_code=413)
         response = await call_next(request)
-        response.headers["Cache-Control"] = "no-store" if request.url.path.startswith("/api") else "no-cache"
+        response.headers["Cache-Control"] = (
+            "no-store" if request.url.path.startswith(("/api", "/course")) else "no-cache"
+        )
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["Content-Security-Policy"] = (

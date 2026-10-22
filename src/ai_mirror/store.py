@@ -196,7 +196,8 @@ class Store:
             db.execute("""UPDATE outbox SET payload='{}',detail='Content removed by retention policy'
                           WHERE created_at<? AND status IN ('sent','cancelled','expired')""", (cutoff,))
             for row in db.execute("""SELECT key,value FROM settings WHERE key LIKE 'evidence/%'
-                                   OR key LIKE 'project_evidence/%' OR key LIKE 'pin/%'""").fetchall():
+                                   OR key LIKE 'project_evidence/%' OR key LIKE 'pin/%'
+                                   OR key LIKE 'github_notifications/%'""").fetchall():
                 value = json.loads(row["value"])
                 if value.get("collected_at", value.get("updated_at", "")) < cutoff:
                     db.execute("DELETE FROM settings WHERE key=?", (row["key"],))

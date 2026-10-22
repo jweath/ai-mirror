@@ -25,7 +25,7 @@ Unlike instOS's metadata-only general coordination design, this separate service
 ## Data and delivery contracts
 
 - One course offering per database; separate student IDs for partners. Explicit instructor-supplied identity mapping, not guesses from channel names or channel membership.
-- Only registered owners' replies in known prompt threads, explicit commands, and registered repository evidence enter the service. Source messages are data, not instructions.
+- Registered owners’ project-channel updates, known prompt replies, explicit commands, and registered repository evidence enter the service. When explicitly configured, the existing GitHub Slack app contributes notification titles and links from those same project channels; attachment bodies are excluded. Source messages are data, not instructions.
 - GitHub activity and issue assignment cannot establish human understanding. Exact submitted journal versions are fetched by SHA. The rolling GitHub evidence window and collection gaps are disclosed.
 - Digests are private, source-linked drafts with one feedback item per student. No grading fields. Model output is structurally validated and may cite only that student's supplied source IDs. The instructor is responsible for judging accuracy and sharing suitability.
 - Every outbound message has a stable ID and payload hash. A transaction claims it before the provider call. After a transport uncertainty or process interruption, it is held for reconciliation rather than automatically retried.
@@ -34,7 +34,7 @@ Unlike instOS's metadata-only general coordination design, this separate service
 
 ## Runtime
 
-FastAPI serves public downloads, a static instructor interface, a bearer-authenticated API, and signed Slack endpoints. A background loop schedules messages, collects GitHub evidence approximately every six hours while enabled, and prepares an after-class digest. HTTP requests and scheduler work run outside the event loop where needed.
+FastAPI serves public downloads, a static instructor interface, a bearer-authenticated API, and signed Slack endpoints. A background loop schedules messages, collects GitHub evidence hourly without a token or every 30 minutes with one, and Slack history every 10 minutes while enabled, and prepares an after-class digest. HTTP requests and scheduler work run outside the event loop where needed.
 
 SQLite uses WAL and transactional claims on a persistent volume. Run exactly one Uvicorn worker and one service replica. This matches the small cohort; horizontal scale requires a shared database and explicit worker leases. No message bodies, raw webhook payloads, or credentials are logged.
 

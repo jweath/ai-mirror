@@ -25,6 +25,8 @@ def test_board_shell_is_public_but_records_and_edits_require_auth(client):
     assert client.get("/pinup").status_code == 200
     assert client.get("/api/pinup").status_code == 401
     assert client.put("/api/pinup/projects/garden", json={"pin": {}}).status_code == 401
+    assert client.get("/course/api/board").status_code == 401
+    assert client.get("/course/api/session").headers["cache-control"] == "no-store"
 
 
 def test_board_keeps_private_notes_journals_and_digests_out(store, client, auth):

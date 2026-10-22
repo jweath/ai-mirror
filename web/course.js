@@ -59,13 +59,14 @@ function render() {
     if (project.pin.source_url) card.append(el('p', 'Source: ' + dateTime(project.pin.source_at) + ' · saved ' + dateTime(project.pin_updated_at), 'fine'));
     if (project.pin_stale) card.append(el('p', 'Pin source is more than a week old. Revisit it with the owner.', 'notice'));
     const git = el('details'); git.dataset.key = project.id + '/git'; git.open = opened.has(git.dataset.key);
-    const gitState = !project.collection_enabled ? 'Disabled' : !project.evidence ? 'Not collected' : !project.evidence.complete ? 'Incomplete' : project.evidence_stale ? 'Stale' : 'Current';
+    const notifications = project.github_notifications?.items || [];
+    const gitState = notifications.length && !project.evidence?.complete ? 'Slack feed' : !project.collection_enabled ? 'Disabled' : !project.evidence ? 'Not collected' : !project.evidence.complete ? 'Incomplete' : project.evidence_stale ? 'Stale' : 'Current';
     git.append(el('summary', 'GitHub evidence · ' + gitState));
     git.append(el('p', 'Last collection attempt: ' + dateTime(project.evidence?.collected_at), 'fine'));
     if (!project.collection_enabled) git.append(el('p', 'GitHub collection is disabled.', 'notice'));
     if (project.evidence_stale) git.append(el('p', project.evidence ? 'Saved evidence is more than 48 hours old.' : 'No repository evidence collected yet.', 'notice'));
     for (const warning of project.evidence?.warnings || []) git.append(el('p', warning, 'notice'));
-    const items = project.evidence?.items || [];
+    const items = [...(project.evidence?.items || []), ...notifications].sort((a,b) => (b.at || '').localeCompare(a.at || ''));
     if (items.length) { const list = el('ul', undefined, 'evidence-list'); for (const item of items.slice(0, 8)) { const li = el('li'); li.append(link(item.url, item.text.split('\n')[0] || item.type) || el('span', item.text || item.type)); li.append(el('span', [item.type.replace('_', ' '), item.state, item.author, item.at ? dateTime(item.at) : null].filter(Boolean).join(' · '), 'fine')); list.append(li); } git.append(list); }
     else git.append(el('p', project.evidence?.complete ? 'No items in the collection window.' : 'No evidence available from this collection.', 'fine'));
     if (project.evidence) git.append(el('p', 'Rolling window since ' + dateTime(project.evidence.since) + '. Showing up to eight recent items.', 'fine'));

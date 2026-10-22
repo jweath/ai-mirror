@@ -122,6 +122,7 @@ def board(store, now=None, shared=False):
             "evidence": evidence, "evidence_stale": stale,
             "collection_enabled": course.github_enabled, "updates": captured,
             "slack_collection": store.get(f"slack_collection/{project.id}"),
+            "github_notifications": store.get(f"github_notifications/{course.sprint}/{project.id}", {}),
         })
     return {"course": course.name, "sprint": course.sprint, "projects": projects,
             "active": course.active, "github_enabled": course.github_enabled,

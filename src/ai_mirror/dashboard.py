@@ -127,8 +127,6 @@ def create_dashboard(settings, store):
         html = html.replace('This view is private; a course-site link does not publish its records.',
                             'Only the course roster can sign in. Instructor-only pins and private learning records '
                             'are excluded from the class view.')
-        html = html.replace('about every six hours when the course and collection are active',
-                            'about once an hour when collection is enabled')
         return HTMLResponse(html)
 
     @app.get("/api/session")
