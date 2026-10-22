@@ -39,8 +39,15 @@ class Slack:
         if not self.token:
             raise SlackError("missing_slack_token")
         try:
-            response = httpx.post(f"https://slack.com/api/{method}", json=payload,
-                                  headers={"Authorization": f"Bearer {self.token}"}, timeout=15)
+            headers = {"Authorization": f"Bearer {self.token}"}
+            if method in ("conversations.info", "conversations.members"):
+                # These metadata methods reject JSON POST parameters in Slack's
+                # live API even though history and chat methods accept them.
+                response = httpx.get(f"https://slack.com/api/{method}", params=payload,
+                                     headers=headers, timeout=15)
+            else:
+                response = httpx.post(f"https://slack.com/api/{method}", json=payload,
+                                      headers=headers, timeout=15)
         except httpx.HTTPError:
             raise SlackError("network_outcome_unknown", uncertain=True) from None
         if response.status_code == 429:
