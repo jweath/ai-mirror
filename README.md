@@ -18,7 +18,7 @@ The assistant can provide evidence and suggestions first. Students preserve that
 
 ## For the instructor
 
-The [project pinup](docs/project-pinup.md) adds a private project board at `/pinup`: source-backed goals, next tests and commitments beside product links, GitHub activity, and captured project updates. This first slice uses the existing course map and collection loop; class/public access is still a separate rollout step.
+The [course dashboard](https://jweath.com/entr/5000/2026/fall/) provides source-backed goals, next tests and commitments beside product links, GitHub activity, and captured project updates. Slack sign-in and an explicit roster protect the class view. John can use the same Slack session for the instructor workspace; the separate operator token remains available for recovery. Private coaching, journals, muddy points, and digests are excluded from the student board.
 
 The [deployed workspace](https://ai-mirror-production-9c9f.up.railway.app/instructor) offers:
 
@@ -30,7 +30,7 @@ The [deployed workspace](https://ai-mirror-production-9c9f.up.railway.app/instru
 - A private 1–2 sentence digest and one feedback suggestion per student. The instructor reviews and edits before queueing feedback to a project channel.
 - Durable delivery receipts, send holds, and recovery for uncertain sends.
 
-**Deployment is separate from activation.** The public student file is available; real-class collection and reminders require the Slack app, verified roster, and dates in the [activation checklist](docs/activation.md). No student records or credentials are shipped in this repository. The example roster is fictional.
+**Deployment is separate from messaging activation.** Read-only collection can run while class reminders stay disabled. Review the explicit schedule and private instructor rehearsal before enabling sends, following the [activation checklist](docs/activation.md). No student records or credentials are shipped in this repository. The example roster is fictional.
 
 The default digest uses transparent excerpts and prompts without a model API. Optional OpenAI mode produces structured AI summaries and themes after explicit configuration. Neither mode grades students or sends feedback without instructor review.
 

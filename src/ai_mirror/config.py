@@ -101,6 +101,9 @@ class Settings:
     slack_token: str = ""
     slack_signing_secret: str = ""
     github_token: str = ""
+    github_app_id: str = ""
+    github_app_private_key: str = ""
+    rehearsal_channel_id: str = ""
     sends_enabled: bool = False
     openai_key: str = ""
     openai_model: str = ""
@@ -120,6 +123,9 @@ class Settings:
             slack_token=os.getenv("SLACK_BOT_TOKEN", ""),
             slack_signing_secret=os.getenv("SLACK_SIGNING_SECRET", ""),
             github_token=os.getenv("GITHUB_TOKEN", ""),
+            github_app_id=os.getenv("GITHUB_APP_ID", ""),
+            github_app_private_key=os.getenv("GITHUB_APP_PRIVATE_KEY", ""),
+            rehearsal_channel_id=os.getenv("MIRROR_REHEARSAL_CHANNEL_ID", ""),
             sends_enabled=os.getenv("MIRROR_SEND_ENABLED", "false").lower() == "true",
             openai_key=os.getenv("OPENAI_API_KEY", ""),
             openai_model=os.getenv("OPENAI_MODEL", ""),

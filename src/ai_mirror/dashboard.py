@@ -9,7 +9,7 @@ from urllib.parse import urlsplit
 
 from authlib.integrations.starlette_client import OAuth
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.sessions import SessionMiddleware
@@ -17,6 +17,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from .config import ROOT
 from .evidence import GitHub, collect_github
 from .pinup import PinConflict, PinUpdate, board, save_pin
+from .slack import SlackError
 
 COOKIE = "__Secure-entr5000_session"
 LIFETIME = 12 * 60 * 60
@@ -26,7 +27,7 @@ def digest(value):
     return hashlib.sha256(value.encode()).hexdigest()
 
 
-def create_dashboard(settings, store):
+def create_dashboard(settings, store, instructor_router=None, admin_dependency=None):
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     public = urlsplit(settings.dashboard_url)
     prefix = public.path.rstrip("/")
@@ -113,7 +114,7 @@ def create_dashboard(settings, store):
                             f'<body class="pinup-page" data-course-base="{prefix}">')
         html = html.replace('/assets/pinup.js"', '/assets/course.js"')
         html = html.replace('Instructor preview', 'Course projects')
-        html = html.replace('href="/instructor"', f'href="{settings.public_url}/instructor"')
+        html = html.replace('href="/instructor"', f'href="{prefix}/instructor"')
         html = html.replace('<h2>Open the project board</h2>',
                             f'<h2>Course projects</h2><a id="slack-login" class="product-link" '
                             f'href="{prefix}/auth/slack">Sign in with Slack</a>'
@@ -153,6 +154,7 @@ def create_dashboard(settings, store):
         course = store.course()
         if not configured or not course:
             return HTMLResponse("Slack sign-in is being connected. Please check back shortly.", status_code=503)
+        request.session["instructor_return"] = request.query_params.get("next") == "instructor"
         return await oauth.slack.authorize_redirect(
             request, settings.dashboard_url + "/auth/callback", team=course.workspace_id,
             response_mode="form_post")
@@ -175,8 +177,9 @@ def create_dashboard(settings, store):
             request.session.clear()
             return HTMLResponse("Sign-in could not be completed for this course. Use your course Slack account.",
                                 status_code=403)
+        destination = "/instructor" if request.session.get("instructor_return") else "/"
         request.session.clear()
-        return issue(RedirectResponse(settings.dashboard_url + "/", status_code=303), user_id,
+        return issue(RedirectResponse(settings.dashboard_url + destination, status_code=303), user_id,
                      request.cookies.get(COOKIE, ""))
 
     @app.post("/api/logout")
@@ -204,11 +207,40 @@ def create_dashboard(settings, store):
 
     @app.post("/api/collect")
     async def collect(user=Depends(instructor)):
-        github = GitHub(settings.github_token)
+        github = GitHub.configured(settings, store.course())
         try:
             return await run_in_threadpool(collect_github, store, github)
         finally:
             github.close()
+
+    @app.get("/instructor")
+    def instructor_workspace(request: Request):
+        try:
+            user = session(request)
+        except HTTPException:
+            return RedirectResponse(prefix + "/auth/slack?next=instructor", status_code=303)
+        if user["role"] != "instructor":
+            raise HTTPException(403, "Instructor access required")
+        html = (ROOT / "web/instructor.html").read_text()
+        html = html.replace('"/assets/', '"' + prefix + '/assets/')
+        html = html.replace('<body class="pinup-page">', f'<body class="pinup-page" data-instructor-base="{prefix}">')
+        html = html.replace('href="/pinup"', f'href="{prefix}/"')
+        html = html.replace('href="/"', 'href="/entr/"')
+        return HTMLResponse(html)
+
+    if instructor_router is not None:
+        # Reuse the same API handlers with roster-based authorization and CSRF
+        # checks. The legacy operator API retains its bearer-token dependency.
+        app.dependency_overrides[admin_dependency] = instructor
+        app.include_router(instructor_router, prefix="/instructor")
+
+    @app.exception_handler(ValueError)
+    async def value_error(request, exc):
+        return JSONResponse({"detail": str(exc)}, status_code=400)
+
+    @app.exception_handler(SlackError)
+    async def slack_error(request, exc):
+        return JSONResponse({"detail": exc.code}, status_code=502)
 
     app.mount("/assets", StaticFiles(directory=ROOT / "web"), name="course-assets")
     return app

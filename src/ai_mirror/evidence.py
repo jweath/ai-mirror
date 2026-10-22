@@ -2,20 +2,71 @@ from __future__ import annotations
 
 import base64
 import re
+import time
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 
 import httpx
+from joserfc import jwt
+from joserfc.errors import JoseError
+from joserfc.jwk import RSAKey
 
 from .workflow import parse_submission
 
 
 class GitHub:
-    def __init__(self, token="", transport=None):
+    def __init__(self, token="", transport=None, app_id="", private_key="", repositories=()):
+        self.app_id, self.private_key = app_id, private_key
+        self.repositories = {r.lower() for r in repositories if r}
+        self.tokens = {}
         self.client = httpx.Client(base_url="https://api.github.com", timeout=20, transport=transport,
                                    headers={"Accept": "application/vnd.github+json",
                                             "X-GitHub-Api-Version": "2022-11-28",
                                             **({"Authorization": f"Bearer {token}"} if token else {})})
+
+    @classmethod
+    def configured(cls, settings, course=None):
+        return cls(settings.github_token, app_id=settings.github_app_id,
+                   private_key=settings.github_app_private_key,
+                   repositories=[p.repository for p in course.projects] if course else [])
+
+    def request(self, path, params=None):
+        if not self.app_id or not self.private_key:
+            return self.client.get(path, params=params)
+        match = re.match(r"^/repos/([^/]+/[^/]+)/", path)
+        repository = match[1] if match else ""
+        if repository.lower() not in self.repositories:
+            return httpx.Response(403, json={"message": "Repository is outside the configured course"})
+        cached = self.tokens.get(repository.lower())
+        if not cached or cached[1] < time.time() + 300:
+            now = int(time.time())
+            key = RSAKey.import_key(self.private_key)
+            assertion = jwt.encode({"alg": "RS256"}, {"iat": now - 60, "exp": now + 540, "iss": self.app_id}, key)
+            headers = {"Authorization": "Bearer " + assertion}
+            installation = self.client.get(f"/repos/{repository}/installation", headers=headers)
+            if installation.status_code == 404:
+                # A public repository remains readable without an installation.
+                # An explicit empty header prevents falling back to a personal token.
+                return self.client.get(path, params=params, headers={"Authorization": ""})
+            if installation.status_code != 200:
+                return installation
+            installation_id = installation.json().get("id")
+            if not isinstance(installation_id, int):
+                return httpx.Response(502, json={})
+            response = self.client.post(f"/app/installations/{installation_id}/access_tokens", headers=headers,
+                                        json={"repositories": [repository.split("/")[1]],
+                                              "permissions": {"contents": "read", "issues": "read"}})
+            if response.status_code != 201:
+                return response
+            data = response.json()
+            if not data.get("token") or not data.get("expires_at"):
+                return httpx.Response(502, json={})
+            cached = (data["token"], datetime.fromisoformat(data["expires_at"].replace("Z", "+00:00")).timestamp())
+            self.tokens[repository.lower()] = cached
+        response = self.client.get(path, params=params, headers={"Authorization": "Bearer " + cached[0]})
+        if response.status_code in (401, 403):
+            self.tokens.pop(repository.lower(), None)
+        return response
 
     def close(self):
         self.client.close()
@@ -24,8 +75,8 @@ class GitHub:
         items = []
         for page in range(1, 6):
             try:
-                response = self.client.get(path, params={**(params or {}), "per_page": 100, "page": page})
-            except httpx.HTTPError:
+                response = self.request(path, params={**(params or {}), "per_page": 100, "page": page})
+            except (httpx.HTTPError, ValueError, JoseError):
                 return items, "GitHub could not be reached; collection incomplete"
             if response.status_code != 200:
                 return items, f"GitHub HTTP {response.status_code}; collection incomplete"
@@ -42,7 +93,10 @@ class GitHub:
 
     def journal(self, source):
         path = quote(source["path"], safe="/")
-        result = self.client.get(f"/repos/{source['repository']}/contents/{path}", params={"ref": source["sha"]})
+        try:
+            result = self.request(f"/repos/{source['repository']}/contents/{path}", params={"ref": source["sha"]})
+        except (httpx.HTTPError, ValueError, JoseError):
+            return None, "Journal connection or App configuration unavailable"
         if result.status_code != 200:
             return None, f"Journal HTTP {result.status_code}; contents unavailable"
         value = result.json()
