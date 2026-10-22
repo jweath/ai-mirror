@@ -1,6 +1,6 @@
 # One activation checklist
 
-The student file can be used immediately. The shared service is deployed in a safe setup state; real-class messages and collection wait for the following items. Complete them together before the first live run.
+The student file and roster-protected project dashboard are live. Read-only Slack/GitHub collection is separate from class messaging, which remains disabled until the schedule and rehearsal are reviewed.
 
 ## Course project dashboard
 
@@ -8,7 +8,7 @@ The class board lives at `https://jweath.com/entr/5000/2026/fall/`. It uses Slac
 
 Import the real course map as inactive with `github_enabled` and `slack_enabled` enabled. The read-only collectors run independently of messaging activation: GitHub hourly without a token, every 30 minutes with one; Slack history every 10 minutes, with signed events between polls. Invite the existing Mirror bot to the registered channels, set its bot token/signing secret, then verify `/slack/events`. Leave messaging disabled until its separate schedule and rehearsal are approved.
 
-Students on the roster can view the shared board. Only pins marked `shared` are included; private notes, journals, muddy points, and digests are excluded. Instructor sessions can edit pins and collect evidence. Roster removal revokes access on the next request. A temporary `viewer_slack_ids` entry grants class viewing without inventing project ownership. Unknown repository or GitHub identities remain unset and produce visible gaps.
+Students on the roster can view the shared board. Only pins marked `shared` are included; private notes, journals, muddy points, and digests are excluded. Instructor sessions can edit pins, collect evidence, and open the instructor workspace at `/instructor` under the course dashboard URL. The same Slack session grants instructor access only to IDs on the instructor roster; it never gives students access to private learning records. Roster removal revokes access on the next request. The separate service-origin bearer-token interface remains a recovery/operator route.
 
 ## Required for class messaging automation
 
@@ -19,7 +19,7 @@ Students on the roster can view the shared board. Only pins marked `shared` are 
 
 ## Optional connections
 
-- **Private GitHub evidence:** supply a fine-grained, read-only token covering the registered repositories, and enable `github_enabled`. This is unnecessary for students to use the file or submit issues themselves. Public repositories can be read without a token within provider limits.
+- **Private GitHub evidence:** use a read-only GitHub App installed by each repository owner; the service supports repository-specific installation tokens. A fine-grained token covers only one resource owner. See [the connection walkthrough](github-connection.md). This connection is unnecessary for students to use the file or submit issues themselves.
 - **AI instructor summaries:** set `MIRROR_DIGEST_PROVIDER=openai`, a service API key, and a supported model. The default extractive digest works without this. Confirm the data handling described in [privacy](privacy.md) before enabling provider processing of instructor evidence.
 
 - **GitHub Actions:** the current GitHub login can publish code but lacks the `workflow` scope. The workflow template is supplied as `config/github-actions-ci.yml`; it has not run on GitHub. After refreshing that permission, copy it to `.github/workflows/ci.yml` and push. Local checks remain available immediately.

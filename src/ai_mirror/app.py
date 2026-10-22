@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qs
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import Field
@@ -19,6 +19,7 @@ from .dashboard import create_dashboard
 from .digest import generate
 from .evidence import GitHub, collect_github
 from .pinup import PinConflict, PinUpdate, board, save_pin
+from .rehearsal import capture_rehearsal, send_rehearsal
 from .slack import Slack, SlackError, plain_slack, verify_signature
 from .slack_evidence import collect_slack, project_event
 from .store import Store, content_hash, now_iso
@@ -51,9 +52,9 @@ def tick(store, settings, slack):
         return
     now = datetime.now(timezone.utc)
     last = store.get("last_github_collection", {}).get("at")
-    interval = timedelta(minutes=30 if settings.github_token else 60)
+    interval = timedelta(minutes=30 if (settings.github_token or settings.github_app_id) else 60)
     if course.github_enabled and (not last or datetime.fromisoformat(last) < now - interval):
-        github = GitHub(settings.github_token)
+        github = GitHub.configured(settings, store.course())
         try:
             collect_github(store, github, now)
         finally:
@@ -134,6 +135,8 @@ def create_app(settings=None, store=None, slack=None):
         if len(settings.admin_token) < 32 or not hmac.compare_digest(token, settings.admin_token):
             raise HTTPException(401, "Instructor authentication required")
 
+    api = APIRouter()
+
     @app.exception_handler(ValueError)
     async def value_error(request, exc):
         return JSONResponse({"detail": str(exc)}, status_code=400)
@@ -159,11 +162,11 @@ def create_app(settings=None, store=None, slack=None):
     def pinup():
         return FileResponse(ROOT / "web/pinup.html")
 
-    @app.get("/api/pinup", dependencies=[Depends(admin)])
+    @api.get("/api/pinup", dependencies=[Depends(admin)])
     def project_board():
         return board(store)
 
-    @app.put("/api/pinup/projects/{project_id}", dependencies=[Depends(admin)])
+    @api.put("/api/pinup/projects/{project_id}", dependencies=[Depends(admin)])
     def update_project_pin(project_id: str, update: PinUpdate):
         try:
             return save_pin(store, project_id, update)
@@ -181,7 +184,7 @@ def create_app(settings=None, store=None, slack=None):
     def assignment():
         return FileResponse(ROOT / "docs/assignment.md", media_type="text/markdown")
 
-    @app.get("/api/status", dependencies=[Depends(admin)])
+    @api.get("/api/status", dependencies=[Depends(admin)])
     def status():
         course = store.course()
         requirements = []
@@ -202,10 +205,12 @@ def create_app(settings=None, store=None, slack=None):
         return {"version": __version__, "course": course.model_dump(mode="json") if course else None,
                 "sends_enabled": settings.sends_enabled, "delivery_hold": store.get("delivery_hold", False),
                 "requirements": requirements, "digest_provider": settings.digest_provider,
+                "rehearsal": store.get("instructor_rehearsal"),
+                "rehearsal_configured": bool(settings.rehearsal_channel_id),
                 "github": store.get("last_github_collection"), "digests": store.digest_list(),
                 "outbox": store.outbox()}
 
-    @app.put("/api/course", dependencies=[Depends(admin)])
+    @api.put("/api/course", dependencies=[Depends(admin)])
     def save_course(course: Course):
         if course.active:
             if not settings.slack_token or not settings.slack_signing_secret:
@@ -222,30 +227,34 @@ def create_app(settings=None, store=None, slack=None):
         store.save_course(course)
         return {"saved": True, "active": course.active}
 
-    @app.get("/api/preview", dependencies=[Depends(admin)])
+    @api.get("/api/preview", dependencies=[Depends(admin)])
     def preview():
         course = store.course()
         return {"jobs": plan(course, datetime.now(timezone.utc), store.get("previous_peer_pairs", []),
                              store.get(f"peer_rotations/{course.sprint}", {})) if course else []}
 
-    @app.get("/api/entries", dependencies=[Depends(admin)])
+    @api.post("/api/rehearsal", dependencies=[Depends(admin)])
+    def rehearsal():
+        return send_rehearsal(store, settings, slack)
+
+    @api.get("/api/entries", dependencies=[Depends(admin)])
     def entries():
         course = store.course()
         return {"entries": store.entries(course.sprint) if course else []}
 
-    @app.post("/api/collect", dependencies=[Depends(admin)])
+    @api.post("/api/collect", dependencies=[Depends(admin)])
     def collect():
-        github = GitHub(settings.github_token)
+        github = GitHub.configured(settings, store.course())
         try:
             return collect_github(store, github)
         finally:
             github.close()
 
-    @app.post("/api/digests", dependencies=[Depends(admin)])
+    @api.post("/api/digests", dependencies=[Depends(admin)])
     def digest():
         return generate(store, settings)
 
-    @app.get("/api/digests/{id}", dependencies=[Depends(admin)])
+    @api.get("/api/digests/{id}", dependencies=[Depends(admin)])
     def get_digest(id: str):
         value = store.digest(id)
         if not value:
@@ -253,7 +262,7 @@ def create_app(settings=None, store=None, slack=None):
         value["body"]["students"] = [{**row, "draft_hash": content_hash(row)} for row in value["body"]["students"]]
         return value
 
-    @app.post("/api/feedback", dependencies=[Depends(admin)])
+    @api.post("/api/feedback", dependencies=[Depends(admin)])
     def feedback(approval: Approval):
         course = store.course()
         digest = store.digest(approval.digest_id)
@@ -274,13 +283,13 @@ def create_app(settings=None, store=None, slack=None):
         return {"queued": True, "id": id, "destination": payload["channel"],
                 "notice": "Reviewed feedback is visible in the student's project channel; global send gates still apply."}
 
-    @app.post("/api/hold", dependencies=[Depends(admin)])
+    @api.post("/api/hold", dependencies=[Depends(admin)])
     def hold():
         store.set("delivery_hold", True)
         store.audit("delivery_hold", {})
         return {"held": True}
 
-    @app.post("/api/release-hold", dependencies=[Depends(admin)])
+    @api.post("/api/release-hold", dependencies=[Depends(admin)])
     def release_hold(body: Reconcile):
         if body.action != "release_hold":
             raise ValueError("Explicit release_hold action required after reconciling provider history")
@@ -290,7 +299,7 @@ def create_app(settings=None, store=None, slack=None):
         store.set("delivery_hold", False)
         return {"held": False}
 
-    @app.post("/api/outbox/{id:path}/reconcile", dependencies=[Depends(admin)])
+    @api.post("/api/outbox/{id:path}/reconcile", dependencies=[Depends(admin)])
     def reconcile(id: str, body: Reconcile):
         row = next((r for r in store.outbox() if r["id"] == id), None)
         if not row or row["status"] not in ("uncertain", "failed", "pending"):
@@ -330,6 +339,7 @@ def create_app(settings=None, store=None, slack=None):
             raise HTTPException(400, "Invalid JSON") from None
         if payload.get("type") == "url_verification":
             return {"challenge": payload.get("challenge")}
+        capture_rehearsal(store, payload)
         handle_event(store, payload)
         project_event(store, payload)
         return {"ok": True}
@@ -342,7 +352,8 @@ def create_app(settings=None, store=None, slack=None):
             raise HTTPException(400, "Missing Slack request identity")
         return handle_command(store, form)
 
-    app.mount("/course", create_dashboard(settings, store), name="course")
+    app.include_router(api)
+    app.mount("/course", create_dashboard(settings, store, api, admin), name="course")
     app.mount("/assets", StaticFiles(directory=ROOT / "web"), name="assets")
     return app
 

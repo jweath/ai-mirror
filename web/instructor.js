@@ -1,11 +1,13 @@
 'use strict';
 let token = '';
 let current = null;
+let csrf = '';
+const courseBase = document.body.dataset.instructorBase || '';
 const $ = id => document.getElementById(id);
 function el(tag, text, className) { const x = document.createElement(tag); if (text !== undefined) x.textContent = text; if (className) x.className = className; return x; }
 function say(text, error = false) { $('message').textContent = text; $('message').classList.toggle('error', error); }
 async function api(path, method = 'GET', body) {
-  const response = await fetch('/api/' + path, {method, headers: {'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'}, ...(body === undefined ? {} : {body: JSON.stringify(body)})});
+  const response = await fetch((courseBase ? courseBase + '/instructor' : '') + '/api/' + path, {method, credentials: 'same-origin', headers: {'Content-Type': 'application/json', ...(courseBase ? {'X-CSRF-Token': csrf} : {'Authorization': 'Bearer ' + token})}, ...(body === undefined ? {} : {body: JSON.stringify(body)})});
   const data = await response.json();
   if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Check the configuration format and required fields.');
   return data;
@@ -19,6 +21,9 @@ async function refresh() {
   for (const [n, label] of [[current.course?.students.length || 0, 'students'], [current.course?.projects.length || 0, 'projects'], [current.course?.meetings.length || 0, 'scheduled moments'], [current.outbox.filter(x => x.status === 'uncertain').length, 'uncertain sends']]) {
     const metric = el('div'); metric.append(el('strong', n), el('span', label)); $('metrics').append(metric);
   }
+  $('rehearsal').hidden = !current.rehearsal_configured;
+  $('rehearsal').disabled = !!current.rehearsal;
+  if (current.rehearsal) $('rehearsal').textContent = 'Rehearsal: ' + current.rehearsal.status.replaceAll('_', ' ');
   $('readiness').replaceChildren();
   if (current.requirements.length) { const list = el('ul'); for (const item of current.requirements) list.append(el('li', item)); $('readiness').append(list); }
   else $('readiness').append(el('p', 'Connected and active. Review the preview before changing dates.', 'notice'));
@@ -57,8 +62,21 @@ $('refresh').addEventListener('click', e => action(e.target, async () => { await
 $('collect').addEventListener('click', e => action(e.target, async () => { const r = await api('collect', 'POST'); say(r.status === 'disabled' ? 'GitHub collection is disabled in course configuration.' : 'Evidence collected. ' + r.warnings.join(' ')); await refresh(); }));
 $('generate').addEventListener('click', e => action(e.target, async () => { say('Preparing a private digest…'); const d = await api('digests', 'POST'); await refresh(); await openDigest(d.id); say('Draft ready. No feedback has been sent.'); }));
 $('hold').addEventListener('click', e => action(e.target, async () => { await api('hold', 'POST'); await refresh(); say('New sends are held. Any in-flight send still needs its receipt checked.'); }));
-$('logout').addEventListener('click', () => { token = ''; current = null; location.reload(); });
+$('logout').addEventListener('click', e => action(e.target, async () => { if (courseBase) { const r = await fetch(courseBase + '/api/logout', {method: 'POST', headers: {'X-CSRF-Token': csrf}}); if (!r.ok) throw new Error('Could not sign out. Refresh and try again.'); location.assign(courseBase + '/'); } else { token = ''; current = null; location.reload(); } }));
 $('config-file').addEventListener('change', async e => { const file = e.target.files[0]; if (file) $('course-json').value = await file.text(); });
 $('save-draft').addEventListener('click', e => action(e.target, async () => { const c = JSON.parse($('course-json').value); c.active = false; c.activated_at = null; await api('course', 'PUT', c); await refresh(); say('Inactive course draft saved.'); }));
 $('preview').addEventListener('click', e => action(e.target, async () => { const r = await api('preview'); $('preview-output').hidden = false; $('preview-output').textContent = JSON.stringify(r.jobs, null, 2); say('Preview uses the saved configuration; no messages were sent.'); }));
 $('activate').addEventListener('click', e => action(e.target, async () => { const c = JSON.parse($('course-json').value); if (!c.meetings?.length) throw new Error('Add and preview explicit class dates before activation.'); c.active = true; c.activated_at = new Date().toISOString(); await api('course', 'PUT', c); await refresh(); say('Course activated. Global sending must also be enabled in the service environment.'); }));
+
+if (courseBase) {
+  $('login').hidden = true;
+  (async () => {
+    const response = await fetch(courseBase + '/api/session', {credentials: 'same-origin'});
+    const {user} = await response.json();
+    if (!user || user.role !== 'instructor') { location.assign(courseBase + '/auth/slack?next=instructor'); return; }
+    csrf = user.csrf;
+    await refresh();
+  })().catch(e => say(e.message, true));
+}
+
+$('rehearsal').addEventListener('click', e => action(e.target, async () => { const r = await api('rehearsal', 'POST'); await refresh(); say(r.status === 'sent' ? 'Test prompt sent to the private instructor rehearsal channel. Reply in its thread to verify capture.' : 'Rehearsal status: ' + r.status); }));

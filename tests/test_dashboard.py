@@ -136,3 +136,35 @@ def test_callback_rejects_valid_code_from_another_browser(dashboard, course):
     nonce["nonce"] = params["nonce"][0]
     client.cookies.clear()
     assert client.post(PREFIX + "/auth/callback", data={"code": "valid-code", "state": params["state"][0]}).status_code == 403
+
+
+def test_instructor_workspace_reuses_session_but_never_student_access(settings, store, course, slack):
+    from ai_mirror.app import create_app
+    full = create_app(settings, store, slack)
+    dashboard = next(r.app for r in full.routes if getattr(r, "path", None) == "/course")
+    outer = FastAPI()
+    outer.mount(PREFIX, dashboard)
+    store.add_entry("private", course.students[0].id, course.sprint, "muddiest_point", "PRIVATE_NOTE", {}, True)
+    with TestClient(outer, base_url=ORIGIN, follow_redirects=False) as client:
+        assert client.get(PREFIX + "/instructor").status_code == 303
+        assert client.get(PREFIX + "/instructor/api/status").status_code == 401
+        seed_session(client, store, course.students[0].slack_id)
+        for path in ("/instructor", "/instructor/api/status", "/instructor/api/entries"):
+            response = client.get(PREFIX + path)
+            assert response.status_code == 403
+            assert "PRIVATE_NOTE" not in response.text
+        seed_session(client, store, course.instructor_slack_ids[0])
+        page = client.get(PREFIX + "/instructor")
+        assert page.status_code == 200 and f'data-instructor-base="{PREFIX}"' in page.text
+        assert client.get(PREFIX + "/instructor/api/status").status_code == 200
+        assert "PRIVATE_NOTE" in client.get(PREFIX + "/instructor/api/entries").text
+        assert client.post(PREFIX + "/instructor/api/hold").status_code == 403
+        headers = {"Origin": ORIGIN, "X-CSRF-Token": "csrf-value"}
+        assert client.post(PREFIX + "/instructor/api/hold", headers=headers).status_code == 200
+        assert client.get(PREFIX + "/instructor/api/status").headers["cache-control"] == "no-store"
+        course.instructor_slack_ids = ["UOTHER"]
+        store.save_course(course)
+        assert client.get(PREFIX + "/instructor/api/entries").status_code == 401
+    with TestClient(full) as legacy:
+        assert legacy.get("/api/status").status_code == 401
+        assert legacy.get("/api/status", headers={"Authorization": "Bearer " + settings.admin_token}).status_code == 200
