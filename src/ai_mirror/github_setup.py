@@ -99,10 +99,10 @@ def check_project(store, provider, project):
 
 
 def refresh_connections(store, settings, now):
-    """At most two probes per tick; webhooks accelerate only mapped repositories."""
+    """Probe at most two connections; refresh evidence only for events or new access."""
     if not credentials(settings):
         return []
-    provider, refreshed = AppProvider(settings), []
+    provider, refreshed, probed = AppProvider(settings), [], 0
     course = store.course()
     with store.connect() as db:
         dirty = {r['project']: r['changed'] for r in db.execute('SELECT * FROM github_refresh')}
@@ -113,12 +113,14 @@ def refresh_connections(store, settings, now):
         checked = datetime.fromisoformat(prior['checked_at']).timestamp() if prior.get('checked_at') else 0
         if now.timestamp() - checked < (30 if project.id in dirty else 1800):
             continue
-        check_project(store, provider, project)
-        refreshed.append(project.id)
+        result = check_project(store, provider, project)
+        probed += 1
+        if project.id in dirty or (result.get('installed') and not prior.get('installed')):
+            refreshed.append(project.id)
         with store.connect() as db:
             db.execute('DELETE FROM github_refresh WHERE project=? AND changed<=?',
                        (project.id, dirty.get(project.id, now.timestamp())))
-        if len(refreshed) == 2:
+        if probed == 2:
             break
     return refreshed
 

@@ -58,3 +58,5 @@ On October 23, 2026, the app was verified against one explicitly selected privat
 Runtime credentials remain in the owner-only `/data/github-app.private.json` file on the existing Railway service. They are excluded from source control, the course database, browser responses, and logs. First-registration bootstrap is disabled after setup. Reuse this app across offerings while maintaining each offering's explicit repository allowlist and course grants.
 
 If approval outlasts a registration link, inspect the existing app and the matching unused, instructor-bound registration before recovery. Preserve the one-use and actor/course checks; do not create a duplicate app or replay a used conversion code. Record any narrowly scoped operator recovery in the audit log.
+
+Routine connection-health probes do not refetch project evidence. Signed events and newly available installations request an affected-project refresh; a full scan already due in the same tick covers that refresh once. This preserves live updates without doubling the fallback API traffic.

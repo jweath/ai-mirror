@@ -62,13 +62,15 @@ def tick(store, settings, slack, learning=None):
     last = store.get("last_github_collection", {}).get("at")
     refreshed = refresh_connections(store, settings, now) if settings.workspace_enabled else []
     interval = timedelta(minutes=30 if (settings.github_token or credentials(settings)) else 60)
+    collected_full = False
     if course.github_enabled and (not last or datetime.fromisoformat(last) < now - interval):
         github = GitHub.configured(settings, store.course())
         try:
             collect_github(store, github, now)
+            collected_full = True
         finally:
             github.close()
-    if course.github_enabled and refreshed:
+    if course.github_enabled and refreshed and not collected_full:
         github = GitHub.configured(settings, course)
         try:
             collect_github(store, github, now, project_ids=set(refreshed))
