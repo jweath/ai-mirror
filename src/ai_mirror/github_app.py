@@ -21,6 +21,8 @@ def credentials(settings):
     if settings.github_app_id and settings.github_app_private_key:
         return {"id": str(settings.github_app_id), "pem": settings.github_app_private_key,
                 "slug": settings.github_app_slug, "webhook_secret": settings.github_webhook_secret}
+    if settings.github_app_id or settings.github_app_private_key:
+        raise GitHubSetupError("The GitHub App configuration is incomplete.")
     path = Path(settings.github_app_config_path) if settings.github_app_config_path else None
     if path and path.exists():
         try:
@@ -32,8 +34,6 @@ def credentials(settings):
             return value
         except (OSError, ValueError, TypeError):
             raise GitHubSetupError("The GitHub App configuration needs instructor attention.") from None
-    if settings.github_app_id or settings.github_app_private_key:
-        raise GitHubSetupError("The GitHub App configuration is incomplete.")
     return None
 
 
@@ -99,15 +99,10 @@ class AppProvider:
                 'install_url':'https://github.com/apps/'+slug+'/installations/new',
                 'permissions':permissions,'error':None}
 
-    def probe(self, repository, *, public_metadata=False):
+    def probe(self, repository):
         repository = repository_name(repository)
         result = self.call('GET',f'/repos/{repository}/installation')
         if result.status_code == 404:
-            if public_metadata:
-                response = self.call('GET',f'/repos/{repository}',app=False)
-                if response.status_code == 200:
-                    data = response.json()
-                    return {'installed':False,'metadata':self.metadata(data),'error':'The owner needs to install the course app on this repository.'}
             return {'installed':False,'error':'The owner needs to install the course app on this repository, or confirm its link.'}
         if result.status_code != 200:
             raise GitHubSetupError('GitHub could not check this repository. Try again shortly.')
@@ -138,15 +133,3 @@ class AppProvider:
             raise GitHubSetupError('GitHub did not identify the repository.')
         return {'id':data['id'],'repository':repository,'url':'https://github.com/'+repository,
                 'private':bool(data.get('private')),'issues_enabled':bool(data.get('has_issues'))}
-
-    def profile(self, login):
-        login = login.strip().removeprefix('@')
-        if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9-]{0,38}',login):
-            raise GitHubSetupError('Enter your GitHub username, not your name or email address.')
-        response = self.call('GET','/users/'+login,app=False)
-        if response.status_code != 200:
-            raise GitHubSetupError('That GitHub username could not be found. Check the spelling.')
-        data = response.json()
-        if data.get('type') != 'User' or type(data.get('id')) is not int:
-            raise GitHubSetupError('Use your individual GitHub account, not an organization account.')
-        return {'id':data['id'],'login':data['login'],'url':'https://github.com/'+data['login']}
