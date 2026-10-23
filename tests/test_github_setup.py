@@ -166,3 +166,11 @@ def test_config_fail_closed_and_query_redaction(github):
                                ('client', 'GET', '/callback?code=secret&state=hidden', '1.1', 200), None)
     assert PrivateQueryFilter().filter(record)
     assert 'secret' not in record.getMessage() and '/callback' in record.getMessage()
+
+
+def test_partial_environment_does_not_fall_back_to_recovery_file(github):
+    _, _, config, data = github
+    save_credentials(config, data)
+    object.__setattr__(config, 'github_app_id', 'wrong-partial-app')
+    with pytest.raises(GitHubSetupError, match='incomplete'):
+        credentials(config)

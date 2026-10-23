@@ -79,7 +79,7 @@ def connection(store, project):
     saved = store.get('github_connection/' + project.id)
     if not project.repository:
         return {'project_id': project.id, 'project': project.name, 'repository': None,
-                'installed': False, 'error': 'Send John your project repository link in your project Slack channel.',
+                'installed': False, 'error': 'Repository link needed.',
                 'checked_at': None}
     if not saved or saved.get('repository') != project.repository:
         return {'project_id': project.id, 'project': project.name, 'repository': project.repository,

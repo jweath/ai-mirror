@@ -162,6 +162,7 @@ function showConnections() {
 }
 function showSetup() {
  const content=el('div',undefined,'learning');const data=githubData;if(!data){content.append(el('p','Loading GitHub connections…'));$('content').replaceChildren(content);return;}
+ if(mode==='instructor')content.append(el('p',data.projects.length+' projects · '+data.projects.filter(p=>!p.repository).length+' repository links needed · '+data.projects.reduce((n,p)=>n+p.members.filter(m=>!m.github_login).length,0)+' usernames needed','muted small'));
  const intro=el('section',undefined,'prep-section');intro.append(el('p','The repository owner installs the course app on the project repository. Partners share one installation and keep separate journals.'));
  if(data.app.error)intro.append(el('p',data.app.error,'error'));
  if(data.app.configured)intro.append(link(data.app.install_url,'Install on your project repository','button'));
@@ -181,7 +182,7 @@ function showSetup() {
 function render() {
  if(mode==='instructor' && !overview)return;
  if(mode!=='instructor'){if(view()==='setup' && githubData){$('title').textContent='GitHub setup';document.title='GitHub setup · ENTR';showSetup();}else showHome();return;}
- const current=view();$('title').textContent=titles[current];document.title=titles[current]+' · ENTR';for(const item of document.querySelectorAll('[data-view]')){if(item.dataset.view===current)item.setAttribute('aria-current','page');else item.removeAttribute('aria-current');}
+ const current=view();$('course-filter').hidden=current==='setup';$('title').textContent=titles[current];document.title=titles[current]+' · ENTR';for(const item of document.querySelectorAll('[data-view]')){if(item.dataset.view===current)item.setAttribute('aria-current','page');else item.removeAttribute('aria-current');}
  if(current==='overview')showOverview();else if(current==='projects')showProjects();else if(current==='people')showPeople();else if(current==='prep')showPrep();else if(current==='checkins')showCheckins();else if(current==='setup')showSetup();else showConnections();
  $('footer').hidden=false;$('checked').textContent=['prep','checkins'].includes(current)?(learningData?.checked_at?'Posts checked '+date(learningData.checked_at,true)+' Eastern':'Waiting for the first source read.'):'Checked '+date(overview.checked_at,true)+' Eastern';
 }
