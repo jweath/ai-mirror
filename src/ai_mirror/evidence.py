@@ -11,6 +11,7 @@ from joserfc import jwt
 from joserfc.errors import JoseError
 from joserfc.jwk import RSAKey
 
+from .github_app import credentials
 from .workflow import parse_submission
 
 
@@ -26,12 +27,15 @@ class GitHub:
 
     @classmethod
     def configured(cls, settings, course=None):
-        return cls(settings.github_token, app_id=settings.github_app_id,
-                   private_key=settings.github_app_private_key,
+        config = credentials(settings) or {}
+        return cls(settings.github_token if not config else "", app_id=str(config.get("id", "")),
+                   private_key=config.get("pem", ""),
                    repositories=[p.repository for p in course.projects] if course else [])
 
     def request(self, path, params=None):
-        if not self.app_id or not self.private_key:
+        if bool(self.app_id) != bool(self.private_key):
+            return httpx.Response(503, json={"message": "Incomplete App configuration"})
+        if not self.app_id:
             return self.client.get(path, params=params)
         match = re.match(r"^/repos/([^/]+/[^/]+)/", path)
         repository = match[1] if match else ""
@@ -108,7 +112,7 @@ class GitHub:
             return None, "Journal content could not be decoded"
 
 
-def collect_github(store, github, now=None):
+def collect_github(store, github, now=None, project_ids=None):
     course = store.course()
     if not course or not course.github_enabled:
         return {"status": "disabled", "warnings": []}
@@ -117,6 +121,8 @@ def collect_github(store, github, now=None):
     since = (now - timedelta(days=14)).isoformat()
     warnings = []
     for project in course.projects:
+        if project_ids is not None and project.id not in project_ids:
+            continue
         if not project.repository:
             message = "Repository link has not been verified"
             warnings.append(f"{project.id}: {message}")
@@ -208,5 +214,6 @@ def collect_github(store, github, now=None):
                 elif text is not None:
                     store.add_entry("journal/" + submission["id"], student.id, course.sprint, "journal",
                                     text, submission["source"])
-    store.set("last_github_collection", {"at": now.isoformat(), "warnings": warnings})
+    if project_ids is None:
+        store.set("last_github_collection", {"at": now.isoformat(), "warnings": warnings})
     return {"status": "collected", "warnings": warnings}

@@ -101,6 +101,10 @@ class Settings:
     slack_token: str = ""
     slack_signing_secret: str = ""
     github_token: str = ""
+    github_app_config_path: str = ""
+    github_app_slug: str = ""
+    github_webhook_secret: str = ""
+    github_bootstrap_enabled: bool = False
     github_app_id: str = ""
     github_app_private_key: str = ""
     rehearsal_channel_id: str = ""
@@ -130,6 +134,10 @@ class Settings:
             slack_token=os.getenv("SLACK_BOT_TOKEN", ""),
             slack_signing_secret=os.getenv("SLACK_SIGNING_SECRET", ""),
             github_token=os.getenv("GITHUB_TOKEN", ""),
+            github_app_config_path=os.getenv("GITHUB_APP_CONFIG_PATH", ""),
+            github_app_slug=os.getenv("GITHUB_APP_SLUG", ""),
+            github_webhook_secret=os.getenv("GITHUB_WEBHOOK_SECRET", ""),
+            github_bootstrap_enabled=os.getenv("GITHUB_APP_BOOTSTRAP_ENABLED", "false").lower()=="true",
             github_app_id=os.getenv("GITHUB_APP_ID", ""),
             github_app_private_key=os.getenv("GITHUB_APP_PRIVATE_KEY", ""),
             rehearsal_channel_id=os.getenv("MIRROR_REHEARSAL_CHANNEL_ID", ""),

@@ -25,3 +25,13 @@ The course's private configuration must contain the current `owner/repository` a
 After installation, use **Collect GitHub** in the signed-in instructor workspace. Verify that the relevant project shows current direct evidence rather than an access gap. Revocation/removal will reappear as a gap. Existing GitHub notification titles in project Slack channels remain labeled **GitHub via Slack**; they are a partial feed, not complete repository history or a substitute for exact journal submissions.
 
 References: [GitHub App registration](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/registering-a-github-app), [installation authentication](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-as-a-github-app-installation), [token limitations](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens).
+
+## Course workspace setup
+
+The current connection view is `/entr/workspace/#setup` for students and `/entr/instructor/#setup` for the 5000 instructor. Students see only their registered project. The installation link comes from the registered app's authenticated `/app` response, not from a supplied URL.
+
+For first registration, set `GITHUB_APP_BOOTSTRAP_ENABLED=true` and `GITHUB_APP_CONFIG_PATH=/data/github-app.private.json` on the existing service. An authenticated 5000 instructor starts a single-use, hour-limited manifest flow. GitHub generates the credentials; the callback validates the actor/state, permissions and private key, then writes an owner-only, exclusive credential file. The app needs no student OAuth grant to read selected repositories. After registration, disable bootstrap. Complete App ID/private key environment settings take precedence over the recovery file; incomplete settings fail closed.
+
+The webhook is `/entr/workspace/hooks/github`. Verify HMAC-SHA256 on the raw body before parsing; deduplicate deliveries and queue only configured repositories. No webhook updates identity mappings or creates grades. At most two connection probes run per background tick. Periodic evidence collection remains a fallback. The access-log filter removes query strings so registration codes and states do not enter request logs.
+
+Use the published [student setup guide](https://jweath.com/entr/5000/resources/github-setup/). Missing usernames or repositories require an instructor-confirmed mapping, preserving existing course-map history safeguards. An installation alone does not prove a person's account ownership. See [the onboarding roadmap](student-onboarding.md) for the next verified identity step and 5500 document checks.

@@ -1,10 +1,10 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const base = document.body.dataset.base, mode = document.body.dataset.mode;
-let user, overview, people, homeData, learningData, refreshing = false;
+let user, overview, people, homeData, learningData, githubData, refreshing = false;
 let prepSnapshot='current';
 const searches={projects:'',people:''};
-const titles = {overview:'Instructor home', projects:'Projects', people:'People', prep:'Class prep', checkins:'Check-ins', connections:'Connections'};
+const titles = {overview:'Instructor home', projects:'Projects', people:'People', prep:'Class prep', checkins:'Check-ins', connections:'Connections', setup:'GitHub setup'};
 function el(tag, text, cls) { const node=document.createElement(tag); if(text!==undefined)node.textContent=text; if(cls)node.className=cls; return node; }
 function link(href,text,cls) { const node=el('a',text,cls); try { const url=new URL(href,location.origin); if(url.protocol!=='https:' && !(url.origin===location.origin && url.pathname.startsWith('/entr/'))) return el('span',text); if(url.origin===location.origin && !url.pathname.startsWith('/entr/'))return el('span',text); node.href=url.href; } catch { return el('span',text); } return node; }
 function say(text,error=false) { $('message').textContent=text; $('message').classList.toggle('error',error); }
@@ -97,7 +97,7 @@ function courseCard(course, personal=false) {
  } else if(course.my_work) {
   const work=el('div',undefined,'work'); work.append(el('h3',course.my_work.name));
   if(course.my_work.next_step){work.append(el('p',course.my_work.next_step));if(course.my_work.source_at){const source=el('p',undefined,'muted small');source.append(course.my_work.source_url?link(course.my_work.source_url,'Reported '+date(course.my_work.source_at)):el('span','Reported '+date(course.my_work.source_at)));work.append(source);}}
-  const links=el('div',undefined,'course-links'); links.append(link(course.my_work.href,'Team Slack'));
+  const links=el('div',undefined,'course-links'); links.append(link(course.my_work.href,'Team Slack'));if(course.course==='5000')links.append(link(base+'/#setup','GitHub setup'));
   if(course.my_work.document_url)links.append(link(course.my_work.document_url,course.course==='5000'?'Repository':'Group document'));
   work.append(links);card.append(work);
  }
@@ -117,6 +117,7 @@ function courseCard(course, personal=false) {
 function showHome() {
  $('title').textContent='My courses';document.title='My courses · ENTR';
  const courses=el('div',undefined,'course-grid');for(const course of homeData.courses)courses.append(courseCard(course,true));
+
  const tools=el('nav',undefined,'tool-row');tools.setAttribute('aria-label','Shared course tools');tools.append(link(homeData.name_practice_url,'Name practice'),link(homeData.grades_url,'eLC: quizzes and grades'),link('/entr/general/tools-and-workflows/','AI use and course workflows'));
  $('content').replaceChildren(courses,tools);$('footer').hidden=false;$('checked').textContent='Coursework comes from the published course brief.';
 }
@@ -159,21 +160,40 @@ function showConnections() {
  if(overview.notifications)rows.push(['AI Mirror prompts',`${overview.notifications.mirror_enabled?'Enabled':'Class messaging off'} · ${overview.notifications.scheduled} saved schedule moments · ${overview.notifications.pending} pending messages${overview.notifications.hold?' · delivery hold':''}`,'Schedule and review',overview.notifications.href]);
  for(const [name,state,label,href] of rows){const row=el('tr');cell(row).append(el('span',name,'connection-name'));cell(row).append(el('p',state));if(href)cell(row).append(link(href,label));else cell(row);body.append(row);} $('content').replaceChildren(wrap);
 }
+function showSetup() {
+ const content=el('div',undefined,'learning');const data=githubData;if(!data){content.append(el('p','Loading GitHub connections…'));$('content').replaceChildren(content);return;}
+ const intro=el('section',undefined,'prep-section');intro.append(el('p','The repository owner installs the course app on the project repository. Partners share one installation and keep separate journals.'));
+ if(data.app.error)intro.append(el('p',data.app.error,'error'));
+ if(data.app.configured)intro.append(link(data.app.install_url,'Install on your project repository','button'));
+ else if(data.can_register){const register=el('button','Register course app');register.addEventListener('click',async()=>{register.disabled=true;try{const result=await api('github/registration','POST');location.assign(result.url);}catch(error){say(error.message,true);register.disabled=false;}});intro.append(register);}
+ else intro.append(el('p','John is finishing the course app setup.','muted'));
+ intro.append(el('p',undefined,'small'));intro.lastChild.append(link(data.guide_url,'Setup instructions'));content.append(intro);
+ for(const project of data.projects){const card=el('section',undefined,'prep-section');card.append(el('h2',project.project));if(project.repository)card.append(link('https://github.com/'+project.repository,project.repository));
+  const ready=project.installed && project.issues_enabled;card.append(el('p',ready?'Connected · read-only project access':project.error || 'Needs a connection',ready?'':'muted'));
+  if(project.checked_at)card.append(el('p','Checked '+date(project.checked_at,true)+' Eastern','muted small'));
+  const logins=el('ul');for(const member of project.members)logins.append(el('li',member.name+': '+(member.github_login?'@'+member.github_login:'GitHub username needed')));card.append(logins);
+  if(project.members.some(m=>!m.github_login) || !project.repository)card.append(el('p','In your project Slack channel, send John your GitHub username and project repository link so he can confirm the connection.','small'));
+  if(project.repository){const check=el('button','Check connection','secondary');check.addEventListener('click',async()=>{check.disabled=true;try{await api('github/check/'+project.project_id,'POST');githubData=await api('github');showSetup();say('');}catch(error){say(error.message,true);check.disabled=false;}});card.append(check);}
+  content.append(card);
+ }$('content').replaceChildren(content);
+}
+
 function render() {
  if(mode==='instructor' && !overview)return;
- if(mode!=='instructor'){showHome();return;}
+ if(mode!=='instructor'){if(view()==='setup' && githubData){$('title').textContent='GitHub setup';document.title='GitHub setup · ENTR';showSetup();}else showHome();return;}
  const current=view();$('title').textContent=titles[current];document.title=titles[current]+' · ENTR';for(const item of document.querySelectorAll('[data-view]')){if(item.dataset.view===current)item.setAttribute('aria-current','page');else item.removeAttribute('aria-current');}
- if(current==='overview')showOverview();else if(current==='projects')showProjects();else if(current==='people')showPeople();else if(current==='prep')showPrep();else if(current==='checkins')showCheckins();else showConnections();
+ if(current==='overview')showOverview();else if(current==='projects')showProjects();else if(current==='people')showPeople();else if(current==='prep')showPrep();else if(current==='checkins')showCheckins();else if(current==='setup')showSetup();else showConnections();
  $('footer').hidden=false;$('checked').textContent=['prep','checkins'].includes(current)?(learningData?.checked_at?'Posts checked '+date(learningData.checked_at,true)+' Eastern':'Waiting for the first source read.'):'Checked '+date(overview.checked_at,true)+' Eastern';
 }
 async function refresh() {
  if(refreshing)return;refreshing=true;$('refresh').disabled=true;
- try { if(mode==='instructor'){overview=await api('overview');if(view()==='people')people=await api('directory');if(['prep','checkins'].includes(view()))learningData=await api('learning');}else {homeData=await api('home');learningData=await api('my-learning');}render();say(''); } catch(error){say(error.message,true);}finally{refreshing=false;$('refresh').disabled=false;}
+ try { if(mode==='instructor'){overview=await api('overview');if(view()==='people')people=await api('directory');if(['prep','checkins'].includes(view()))learningData=await api('learning');}else {homeData=await api('home');learningData=await api('my-learning');}if(view()==='setup')githubData=await api('github');render();say(''); } catch(error){say(error.message,true);}finally{refreshing=false;$('refresh').disabled=false;}
 }
 $('course-filter').addEventListener('change',render);$('refresh').addEventListener('click',refresh);
-window.addEventListener('hashchange',async()=>{if(!user || mode!=='instructor')return;if(['people','prep','checkins'].includes(view())){try{if(view()==='people')people=await api('directory');else learningData=await api('learning');}catch(error){say(error.message,true);return;}}render();});
+window.addEventListener('hashchange',async()=>{if(!user)return;if(view()==='setup'){try{githubData=await api('github');}catch(error){say(error.message,true);return;}}if(mode!=='instructor'){render();return;}if(['people','prep','checkins'].includes(view())){try{if(view()==='people')people=await api('directory');else learningData=await api('learning');}catch(error){say(error.message,true);return;}}render();});
 $('logout').addEventListener('click',async()=>{try{await api('logout','POST');location.assign(base+'/');}catch(error){say(error.message,true);}});
 (async()=>{const session=await api('session');user=session.user;if(!user){$('login').hidden=false;if(!session.slack_enabled){$('sign-in').hidden=true;say('Slack sign-in is not connected.');}return;}
+ for(const item of document.querySelectorAll('[data-view=setup]'))item.hidden=!user.grants.some(g=>g.course==='5000' && g.role==='instructor');
  $('logout').hidden=false;$('instructor-link').hidden=!user.grants.some(g=>g.role==='instructor');
  if(mode==='instructor'){ $('sidebar').hidden=false;$('controls').hidden=false;for(const grant of user.grants.filter(g=>g.role==='instructor')){const option=el('option',`ENTR ${grant.course} · ${grant.section==='115'?'1:15':grant.section==='1135'?'11:35':'2:55'}`);option.value=`${grant.course}:${grant.section}`;$('course-filter').append(option);}}
  await refresh();setInterval(()=>{if(!document.hidden && !document.activeElement.closest('input') && !document.querySelector('.learning details[open]'))refresh();},60000);

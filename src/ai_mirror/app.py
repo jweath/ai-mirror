@@ -19,6 +19,8 @@ from .dashboard import create_dashboard
 from .digest import generate
 from .directory import Directory
 from .evidence import GitHub, collect_github
+from .github_app import credentials
+from .github_setup import PrivateQueryFilter, refresh_connections
 from .learning import LearningClient
 from .pinup import PinConflict, PinUpdate, board, save_pin
 from .progress import create_progress
@@ -58,11 +60,18 @@ def tick(store, settings, slack, learning=None):
         return
     now = datetime.now(timezone.utc)
     last = store.get("last_github_collection", {}).get("at")
-    interval = timedelta(minutes=30 if (settings.github_token or settings.github_app_id) else 60)
+    refreshed = refresh_connections(store, settings, now) if settings.workspace_enabled else []
+    interval = timedelta(minutes=30 if (settings.github_token or credentials(settings)) else 60)
     if course.github_enabled and (not last or datetime.fromisoformat(last) < now - interval):
         github = GitHub.configured(settings, store.course())
         try:
             collect_github(store, github, now)
+        finally:
+            github.close()
+    if course.github_enabled and refreshed:
+        github = GitHub.configured(settings, course)
+        try:
+            collect_github(store, github, now, project_ids=set(refreshed))
         finally:
             github.close()
     last_slack = store.get("last_slack_collection", {}).get("at")
@@ -85,6 +94,7 @@ def tick(store, settings, slack, learning=None):
 
 
 def create_app(settings=None, store=None, slack=None):
+    logging.getLogger("uvicorn.access").addFilter(PrivateQueryFilter())
     settings = settings or Settings.from_env()
     store = store or Store(settings.db_path)
     slack = slack or Slack(settings.slack_token)
@@ -136,6 +146,8 @@ def create_app(settings=None, store=None, slack=None):
             "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://*.slack-edge.com https://secure.gravatar.com; "
             "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
         )
+        if request.url.path == "/workspace/github/register":
+            response.headers["Content-Security-Policy"] += " https://github.com"
         return response
 
     def admin(request: Request):
