@@ -50,7 +50,7 @@ Implemented in the GitHub setup release:
 - A private setup view uses existing Slack sign-in. An instructor can inspect all 19 registered projects; students see only their project and team account mappings.
 - Connection checks use an actual installation token and repository read. A saved URL or a successful public read is not presented as an app installation. Issues must be enabled for journal receipts.
 - Signed, deduplicated GitHub events queue checks only for configured course repositories; periodic reads remain a fallback. Raw webhook content and credentials are not saved as learning records.
-- Missing or incorrect usernames and repository links go through John's existing project Slack conversation and explicit reviewed course mapping. This release does not let a typed username establish account ownership or silently rewrite a historical identity.
+- Missing or incorrect usernames and repository links go through John's existing project Slack conversation and an explicit reviewed GitHub-only mapping migration with archived history. This release does not let a typed username establish account ownership or silently rewrite a historical identity.
 
 App registration and each owner's installation still require completion and live verification. The setup view reports those states rather than treating published instructions as proof of access.
 
