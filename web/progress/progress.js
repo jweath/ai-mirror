@@ -18,6 +18,14 @@ async function api(path, method = 'GET', data) {
 }
 for (const a of document.querySelectorAll('[data-section-link]')) if (a.dataset.sectionLink === section) a.setAttribute('aria-current','page');
 for (const name of ['paper','creative']) { const select = document.querySelector(`[name="${name}"]`); for (const value of ['unknown','planning','drafting','ready','submitted']) { const option = el('option', value === 'unknown' ? 'Not recorded' : labels[value]); option.value = value; select.append(option); } }
+function members(profiles) {
+ const list=el('div',undefined,'member-list');
+ for(const person of profiles || []) { const item=el('span',undefined,'member');const photo=el('span',person.name.split(/\s+/).map(n=>n[0]).slice(0,2).join(''),'avatar fallback');
+  if(person.photo) { try {const u=new URL(person.photo);if(u.protocol==='https:' && (u.hostname.endsWith('.slack-edge.com') || u.hostname==='secure.gravatar.com')){const img=el('img',undefined,'avatar');img.src=u.href;img.alt='';img.loading='lazy';img.referrerPolicy='no-referrer';img.addEventListener('error',()=>img.replaceWith(photo),{once:true});item.append(img);}else item.append(photo);}catch{item.append(photo);}}else item.append(photo);
+  item.append(el('span',person.name));list.append(item);
+ }return list;
+}
+
 function render() {
   const query = $('search').value.toLowerCase().trim(), filter = $('filter').value;
   const groups = board.groups.filter(g => (filter === 'all' || g.progress.interview === filter) && [g.name, ...g.members, g.progress.entrepreneur, g.progress.company, g.progress.next_step].join(' ').toLowerCase().includes(query));
@@ -27,7 +35,7 @@ function render() {
   for (const g of groups) {
     const p = g.progress, row = el('tr');
     function cell(label) { const td = el('td'); td.dataset.label = label; row.append(td); return td; }
-    const group = cell('Group'); group.append(el('h2',g.name), el('p',g.members.join(' · '),'members'));
+    const group = cell('Group'); group.append(el('h2',g.name), g.member_profiles?.length ? members(g.member_profiles) : el('p',g.members.join(' · '),'members'));
     const founder = cell('Entrepreneur'); founder.append(el('p',p.entrepreneur || '—')); if (p.company) founder.append(el('p',p.company,'muted'));
     const interview = cell('Interview'); interview.append(el('p',labels[p.interview],p.interview === 'completed' ? 'complete' : ''));
     if (p.interview === 'completed' && p.completed_date) interview.append(el('p',day(p.completed_date),'muted'));

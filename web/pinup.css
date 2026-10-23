@@ -125,3 +125,5 @@
 @media print {.site-header,.course-sidebar,.board-tools,.edit-pin {display:none!important}.pinup {margin:0;padding:0}.pinup::before {display:none}.project-grid {grid-template-columns:1fr 1fr}.project-card {break-inside:avoid}.pinup-page {--paper:#fff;--white:#fff;--ink:#000;--heading:#000;--muted:#333;--accent-text:#000;--line:#ccc;--hairline:#ddd}}
 
 .board-footer #sync{max-width:none;text-align:left;margin:0 0 .35rem}@media(max-width:599px){.board-tools label:not(.search-label){flex-basis:100%}.board-tools button{flex:1 0 auto;white-space:nowrap}}
+
+.member-list{display:flex;flex-wrap:wrap;gap:8px 14px;margin:8px 0}.member{display:inline-flex;align-items:center;gap:7px;font-size:.85rem;line-height:1.35}.avatar{width:30px;height:30px;flex:none;border-radius:50%;object-fit:cover}.avatar.fallback{display:inline-flex;align-items:center;justify-content:center;background:var(--surface-2,#e9e5ef);color:var(--text,#292432);font-size:.65rem;font-weight:650}

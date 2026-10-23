@@ -114,6 +114,8 @@ class Settings:
     session_secret: str = ""
     slack_client_id: str = ""
     slack_client_secret: str = ""
+    learning_url: str = "https://participation-api-production.up.railway.app/learning/snapshot"
+    learning_token: str = ""
     workspace_enabled: bool = False
     workspace_url: str = "https://jweath.com/entr/workspace"
     progress_roster_path: str = ""
@@ -141,6 +143,8 @@ class Settings:
             session_secret=os.getenv("MIRROR_SESSION_SECRET", ""),
             slack_client_id=os.getenv("SLACK_CLIENT_ID", ""),
             slack_client_secret=os.getenv("SLACK_CLIENT_SECRET", ""),
+            learning_url=os.getenv("COURSE_LEARNING_URL", "https://participation-api-production.up.railway.app/learning/snapshot"),
+            learning_token=os.getenv("COURSE_LEARNING_TOKEN", ""),
             workspace_enabled=os.getenv("COURSE_WORKSPACE_ENABLED", "false").lower() == "true",
             workspace_url=os.getenv("COURSE_WORKSPACE_URL", "https://jweath.com/entr/workspace").rstrip("/"),
             progress_roster_path=os.getenv("PROGRESS_ROSTER_PATH", ""),

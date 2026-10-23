@@ -8,6 +8,7 @@ from urllib.parse import urlsplit
 from pydantic import Field, field_validator, model_validator
 
 from .config import StrictModel
+from .learning import photo_url
 from .store import content_hash
 
 
@@ -114,7 +115,8 @@ def board(store, now=None, shared=False):
             "repository_url": f"https://github.com/{project.repository}" if project.repository else None,
             "issues_url": f"https://github.com/{project.repository}/issues" if project.repository else None,
             "channel_url": f"https://app.slack.com/client/{course.workspace_id}/{project.channel_id}",
-            "owners": [{"id": s.id, "name": s.name} for s in owners],
+            "owners": [{"id": s.id, "name": s.name, "slack_id":s.slack_id,
+                        "photo":photo_url(store.get("learning_profiles",{}).get(s.slack_id,""))} for s in owners],
             "pin": pin["pin"] if pin else ProjectPin().model_dump(mode="json"),
             "pin_updated_at": pin["updated_at"] if pin else None,
             "pin_stale": bool(pin_age and datetime.fromisoformat(pin_age) < now - timedelta(days=7)),
