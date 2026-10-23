@@ -12,6 +12,7 @@ from pathlib import Path
 import httpx
 
 from .config import ROOT, Course, Settings
+from .github_mapping import MappingReview, update_mapping
 from .store import Store
 from .workflow import peer_rotation, plan
 
@@ -117,9 +118,15 @@ def main():
         submit.add_argument("--" + field, required=True)
     submit.add_argument("--peer")
     submit.add_argument("--publish", action="store_true")
+    mapping = sub.add_parser("github-mapping", help="Preview an instructor-reviewed GitHub-only mapping migration")
+    mapping.add_argument("file", help="Private reviewed JSON; includes expected course hash and source link")
+    mapping.add_argument("--apply", action="store_true", help="Apply the reviewed change with archived mapping history")
     args = parser.parse_args()
     try:
-        if args.command in ("validate-course", "preview", "peers", "configure"):
+        if args.command == "github-mapping":
+            review = MappingReview.model_validate_json(Path(args.file).read_text())
+            result = update_mapping(Store(Settings.from_env().db_path), review, apply=args.apply)
+        elif args.command in ("validate-course", "preview", "peers", "configure"):
             course = Course.model_validate_json(Path(args.file).read_text())
             if args.command == "validate-course":
                 result = {"valid": True, "students": len(course.students), "projects": len(course.projects),

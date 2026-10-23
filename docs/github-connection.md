@@ -35,3 +35,15 @@ For first registration, set `GITHUB_APP_BOOTSTRAP_ENABLED=true` and `GITHUB_APP_
 The webhook is `/entr/workspace/hooks/github`. Verify HMAC-SHA256 on the raw body before parsing; deduplicate deliveries and queue only configured repositories. No webhook updates identity mappings or creates grades. At most two connection probes run per background tick. Periodic evidence collection remains a fallback. The access-log filter removes query strings so registration codes and states do not enter request logs.
 
 Use the published [student setup guide](https://jweath.com/entr/5000/resources/github-setup/). Missing usernames or repositories require an instructor-confirmed mapping, preserving existing course-map history safeguards. An installation alone does not prove a person's account ownership. See [the onboarding roadmap](student-onboarding.md) for the next verified identity step and 5500 document checks.
+
+
+### Repair an instructor-confirmed mapping
+
+Use the operator CLI against the intended private database, after John confirms the student's own account and project repository. Do not infer a GitHub identity from a similar name or repository owner.
+
+1. Back up the database and record the current `content_hash(store.course().model_dump(mode="json"))`.
+2. Prepare an owner-only JSON file with `student_id`, the changed `github_login` and/or `repository`, `expected_hash`, configured instructor `actor_slack_id`, a specific `reason`, the confirming Slack/GitHub `source_url`, and `reviewed: true`.
+3. Run `ai-mirror github-mapping reviewed.private.json` to preview. With the exact reviewed change, add `--apply`.
+4. Check the new mapping and project read. A stale expected hash requires a fresh review; do not force it.
+
+This explicit migration changes only the selected personal GitHub login and that student's project repository. It rejects duplicate account/repository assignments and roster fields. The transaction archives the old course mapping and stale read views, records the instructor/source/reason, and queues a project refresh. Entries, journals, receipts, pins, digests, and messages keep their original identities and source links. The normal course-config update retains its stricter history safeguard.
