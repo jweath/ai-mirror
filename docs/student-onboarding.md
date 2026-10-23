@@ -52,7 +52,7 @@ Implemented in the GitHub setup release:
 - Signed, deduplicated GitHub events queue checks only for configured course repositories; periodic reads remain a fallback. Raw webhook content and credentials are not saved as learning records.
 - Missing or incorrect usernames and repository links go through John's existing project Slack conversation and an explicit reviewed GitHub-only mapping migration with archived history. This release does not let a typed username establish account ownership or silently rewrite a historical identity.
 
-App registration and each owner's installation still require completion and live verification. The setup view reports those states rather than treating published instructions as proof of access.
+[ENTR Project Reader](https://github.com/apps/entr-project-reader-jweath) was registered and verified on October 23, 2026, using a private synthetic repository. The rehearsal collected an exact-commit journal and closed submission issue, and GitHub delivered signed push, issue, and installation updates successfully. Each course repository owner still needs to install the app; missing personal accounts and repository links still need confirmation. The live setup view reports those states rather than treating published instructions or the rehearsal as proof of student-repository access.
 
 ## Next: a guided Start here flow
 
@@ -102,7 +102,7 @@ Repair actions should take John or the student directly to the relevant existing
 
 ## Rollover and exceptions
 
-- Build the next offering as a draft, import reviewed enrollment and groups, test access, then publish its Start here link. Retain semester-specific URLs and archived source history.
+- Build the next offering as a draft, import reviewed enrollment and groups, test access, then publish its Start here link. Reuse the course-owned GitHub app; do not create another app or ask students for infrastructure credentials each semester. Retain semester-specific URLs and archived source history.
 - Dual enrollment uses one Slack identity with separate course/section grants and course-specific requirements.
 - Late adds receive only future prompts once their identity is confirmed. Withdrawals revoke active grants and cancel future reminders while preserving assessed and historical records. Never infer an earlier withdrawal date.
 - Repository rename, transfer, app suspension/removal, document access removal, and organization approval should produce explicit repair states. No silent remapping and no broad personal-token fallback.

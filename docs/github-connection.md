@@ -47,3 +47,14 @@ Use the operator CLI against the intended private database, after John confirms 
 4. Check the new mapping and project read. A stale expected hash requires a fresh review; do not force it.
 
 This explicit migration changes only the selected personal GitHub login and that student's project repository. It rejects duplicate account/repository assignments and roster fields. The transaction archives the old course mapping and stale read views, records the instructor/source/reason, and queues a project refresh. Entries, journals, receipts, pins, digests, and messages keep their original identities and source links. The normal course-config update retains its stricter history safeguard.
+
+
+## Registered course app
+
+The course app is [ENTR Project Reader - jweath](https://github.com/apps/entr-project-reader-jweath), owned by `jweath`. Students start in the shared [course workspace](https://jweath.com/entr/workspace/#setup); its install link is checked against GitHub's authenticated app metadata.
+
+On October 23, 2026, the app was verified against one explicitly selected private synthetic repository: read-only Contents/Issues/Metadata access, exact-commit journal retrieval, closed submission-issue capture, and successful signed push/issue/installation deliveries. The rehearsal used a separate database and created no student records or class messages. It proves the connection path; each real repository still needs its owner's installation and a live access check.
+
+Runtime credentials remain in the owner-only `/data/github-app.private.json` file on the existing Railway service. They are excluded from source control, the course database, browser responses, and logs. First-registration bootstrap is disabled after setup. Reuse this app across offerings while maintaining each offering's explicit repository allowlist and course grants.
+
+If approval outlasts a registration link, inspect the existing app and the matching unused, instructor-bound registration before recovery. Preserve the one-use and actor/course checks; do not create a duplicate app or replay a used conversion code. Record any narrowly scoped operator recovery in the audit log.
