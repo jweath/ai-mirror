@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import ROOT
 from .course_context import CourseContext
+from .learning import people_with_photos, project_learning
 from .pinup import board
 from .progress import SECTIONS, Progress
 
@@ -21,7 +22,7 @@ def instructor_courses(user):
     return {g["course"] for g in user["grants"] if g["role"] == "instructor"}
 
 
-def create_workspace(settings, mirror, directory, progress, shared_session, logout, slack_enabled):
+def create_workspace(settings, mirror, directory, progress, shared_session, logout, slack_enabled, learning=None):
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     prefix = urlsplit(settings.workspace_url).path
     context = CourseContext()
@@ -119,9 +120,21 @@ def create_workspace(settings, mirror, directory, progress, shared_session, logo
                 "name_practice_url": "https://the-face-book-production.up.railway.app",
                 "grades_url": "https://elc.uga.edu/"}
 
+    @app.get('/api/learning')
+    def learning_brief(user=Depends(instructor)):
+        return project_learning(learning.snapshot() if learning else {}, directory, user, instructor=True)
+
+    @app.get('/api/my-learning')
+    def my_learning(user=Depends(shared_session)):
+        return project_learning(learning.snapshot() if learning else {}, directory, user)
+
     @app.get("/api/directory")
     def people(user=Depends(instructor)):
-        return directory.snapshot(instructor_courses(user))
+        result = directory.snapshot(instructor_courses(user))
+        photos = mirror.get('learning_profiles',{})
+        for person in result['people']:
+            person['photo'] = photos.get(person['slack_id'],'')
+        return result
 
     @app.get("/api/overview")
     def overview(user=Depends(instructor)):
@@ -137,7 +150,8 @@ def create_workspace(settings, mirror, directory, progress, shared_session, logo
                         "next_step": project["pin"]["next_test"], "blocker": "",
                         "href": project["channel_url"], "overview_url": "/entr/5000/2026/fall/",
                         "source_url": project["pin"]["source_url"],
-                        "source_at": project["pin"].get("source_at")}
+                        "source_at": project["pin"].get("source_at"),
+                        "members":project["owners"]}
                 projects.append(item)
                 for update in project["updates"]:
                     if not update["text"].strip() or update["text"].lstrip().startswith("/"):
@@ -182,7 +196,8 @@ def create_workspace(settings, mirror, directory, progress, shared_session, logo
                         projects.append({"course": "5500", "section": section, "name": group.name,
                                          "next_step": state.next_step, "blocker": state.blocker,
                                          "href": href, "overview_url": href,
-                                         "source_url": state.source_url, "source_at": state.source_date})
+                                         "source_url": state.source_url, "source_at": state.source_date,
+                                         "members":people_with_photos(mirror, group.members)})
                         if saved["revision"]:
                             changes.append({"course": "5500", "section": section, "name": group.name,
                                             "text": state.next_step or "Group milestones updated",
@@ -222,6 +237,7 @@ def create_workspace(settings, mirror, directory, progress, shared_session, logo
         return {"courses": courses, "alerts": alerts, "projects": projects,
                 "changes": sorted(changes, key=lambda c: c["at"] or "", reverse=True)[:30],
                 "notifications": notifications, "participation": participation,
+                "learning_connected":bool(learning and learning.snapshot().get("connected")),
                 "checked_at": datetime.now(timezone.utc).isoformat()}
 
     app.mount("/assets", StaticFiles(directory=ROOT / "web/workspace"), name="workspace-assets")

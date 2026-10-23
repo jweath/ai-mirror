@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .config import ROOT
+from .learning import people_with_photos
 
 SECTIONS = {"1135": "11:35 a.m.", "255": "2:55 p.m."}
 
@@ -152,7 +153,7 @@ class Store:
         return self.get(group)
 
 
-def create_progress(settings, directory, shared_session, logout, slack_enabled):
+def create_progress(settings, directory, shared_session, logout, slack_enabled, mirror=None):
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     public = urlsplit(settings.workspace_url)
     base = public.path.removesuffix("/workspace") + "/5500/2026/fall"
@@ -170,6 +171,7 @@ def create_progress(settings, directory, shared_session, logout, slack_enabled):
     def view(group, row, user):
         progress = Progress.model_validate_json(row["progress"])
         return {"id": group.id, "name": group.name, "section": group.section,
+                "member_profiles": people_with_photos(mirror,group.members) if mirror else [],
                 "members": [m.name for m in group.members], "revision": row["revision"],
                 "progress": progress.model_dump(mode="json"), "reporter": row["reporter"],
                 "updated": row["updated"],

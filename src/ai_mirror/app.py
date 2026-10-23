@@ -19,6 +19,7 @@ from .dashboard import create_dashboard
 from .digest import generate
 from .directory import Directory
 from .evidence import GitHub, collect_github
+from .learning import LearningClient
 from .pinup import PinConflict, PinUpdate, board, save_pin
 from .progress import create_progress
 from .rehearsal import capture_rehearsal, send_rehearsal
@@ -45,7 +46,9 @@ class Reconcile(StrictModel):
     provider_ts: str | None = None
 
 
-def tick(store, settings, slack):
+def tick(store, settings, slack, learning=None):
+    if learning:
+        learning.snapshot()
     enqueue_due(store)
     for _ in range(50):
         if deliver_one(store, settings, slack) is None:
@@ -85,6 +88,7 @@ def create_app(settings=None, store=None, slack=None):
     settings = settings or Settings.from_env()
     store = store or Store(settings.db_path)
     slack = slack or Slack(settings.slack_token)
+    learning = LearningClient(settings, store)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -93,7 +97,7 @@ def create_app(settings=None, store=None, slack=None):
         async def loop():
             while True:
                 try:
-                    await run_in_threadpool(tick, store, settings, slack)
+                    await run_in_threadpool(tick, store, settings, slack, learning)
                 except Exception:
                     # Source text, tokens, and provider response bodies never enter service logs.
                     logger.warning("Background task incomplete; inspect authenticated status and provider access")
@@ -112,6 +116,7 @@ def create_app(settings=None, store=None, slack=None):
                   docs_url=None, redoc_url=None, openapi_url=None)
     app.state.store = store
     app.state.settings = settings
+    app.state.learning = learning
 
     @app.middleware("http")
     async def headers_and_size(request, call_next):
@@ -128,7 +133,7 @@ def create_app(settings=None, store=None, slack=None):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
+            "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://*.slack-edge.com https://secure.gravatar.com; "
             "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
         )
         return response
@@ -361,10 +366,10 @@ def create_app(settings=None, store=None, slack=None):
     app.mount("/course", dashboard, name="course")
     if directory:
         progress = create_progress(settings, directory, dashboard.state.shared_session,
-                                   dashboard.state.logout, dashboard.state.slack_enabled)
+                                   dashboard.state.logout, dashboard.state.slack_enabled, mirror=store)
         workspace = create_workspace(settings, store, directory, progress.state.store,
                                      dashboard.state.shared_session, dashboard.state.logout,
-                                     dashboard.state.slack_enabled)
+                                     dashboard.state.slack_enabled, learning=learning)
         app.mount("/workspace", workspace, name="workspace")
         app.mount("/progress", progress, name="progress")
         app.state.workspace = workspace

@@ -34,6 +34,14 @@ async function refresh(quiet = false) {
   } finally { loading = false; }
 }
 function hasGap(project) { return !project.collection_enabled || project.evidence_stale || !project.evidence?.complete; }
+function members(profiles) {
+ const list=el('div',undefined,'member-list');
+ for(const person of profiles || []) { const item=el('span',undefined,'member');const photo=el('span',person.name.split(/\s+/).map(n=>n[0]).slice(0,2).join(''),'avatar fallback');
+  if(person.photo) { try {const u=new URL(person.photo);if(u.protocol==='https:' && (u.hostname.endsWith('.slack-edge.com') || u.hostname==='secure.gravatar.com')){const img=el('img',undefined,'avatar');img.src=u.href;img.alt='';img.loading='lazy';img.referrerPolicy='no-referrer';img.addEventListener('error',()=>img.replaceWith(photo),{once:true});item.append(img);}else item.append(photo);}catch{item.append(photo);}}else item.append(photo);
+  item.append(el('span',person.name));list.append(item);
+ }return list;
+}
+
 function render() {
   if (!snapshot) return;
   // Preserve expanded source sections when saved records refresh.
@@ -43,7 +51,7 @@ function render() {
   $('projects').replaceChildren(); $('result-count').textContent = `${projects.length} of ${snapshot.projects.length} projects`;
   if (!projects.length) $('projects').append(el('p', snapshot.projects.length ? 'No projects match this view.' : 'No configured projects yet.', 'missing'));
   for (const project of projects) {
-    const card = el('article', undefined, 'project-card'); card.append(el('h2', project.name), el('p', project.owners.map(s => s.name).join(' · ') || 'Owner mapping missing', 'owners'));
+    const card = el('article', undefined, 'project-card'); card.append(el('h2', project.name), members(project.owners));
     const links = el('div', undefined, 'project-links');
     for (const [url, title, cls] of [[project.pin.live_url, 'Open product', 'product-link'], [project.repository_url, 'GitHub'], [project.issues_url, 'Issues'], [project.channel_url, 'Slack']]) { const a = link(url, title, cls); if (a) links.append(a); }
     card.append(links);

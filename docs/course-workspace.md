@@ -58,3 +58,52 @@ The existing daily volume backup includes the separate progress database and sou
 For rollback, revert the course navigation/proxies and disable `COURSE_WORKSPACE_ENABLED`; retain the existing Mirror source and data. Shared cookies remain valid for 5000 while their server sessions and current roster grants remain valid. Preserve progress files for recovery. Do not delete or rewrite course records during rollback.
 
 Local QA wrappers and private source snapshots belong in ignored `.local/`. The production app has no impersonation or unauthenticated preview mode.
+
+## Preparation and reflection loop
+
+5500 preparation is read from the existing entrepreneur-project Slack posts by
+instOS Participation. Students do not submit a second dashboard form. The current
+assignment is Dropbox/Cork’d for October 27. A–D discuss Dropbox; E–I discuss Cork’d
+(including the instructor's October 23 clarification for morning Group I).
+The instructor's planning cutoff is two hours before each section: 09:35 and 12:55
+America/New_York. The assignment remains due before class. A cutoff is not an
+attendance rule or a new graded deadline.
+
+The participation service owns read provenance, observed message versions,
+three-part extraction, and reflections linked to the existing participation
+receipt. It reads only configured channels and exact enrolled Slack identities.
+Numbered or labeled responses can be extracted; other substantial posts stay
+reviewable. A read error retains the previous evidence and marks coverage
+incomplete. Observed versions before a cutoff are retained separately from later
+edits; text edited before the first read cannot be reconstructed. Topic counts
+are deterministic word matches, and displayed questions are student quotations.
+There is no model-provider call or automatic assessment of a misconception.
+
+The workspace uses `COURSE_LEARNING_TOKEN` to GET the participation service's
+`/learning/snapshot`. This independent credential permits learning reads only;
+it is not an instructor credential and cannot read grades, correct attendance,
+change reminders, or write learning records. The source URL defaults to the
+existing participation API. Cache freshness/failure is visible. Every response
+is filtered again through the current course directory before serving it.
+Students receive their own prep and reflections only; instructors receive only
+sections they teach. No learning data or photos enters the static course build.
+
+The existing bot's participation form adds optional takeaway, muddiest point,
+and next-question inputs when `COURSE_REFLECTIONS_ENABLED=true`. One transaction
+saves the existing participation receipt and its reflection. Neither reflection
+content nor preparation completion changes the 0–3 rating or attendance policy.
+No additional reminder is scheduled. Attendance-only days retain their short form.
+
+Slack avatars use exact member IDs, a six-hour source cache, known Slack/Gravatar
+HTTPS hosts, and initials on missing/broken photos. Only the photo URL and check
+time are retained from profile data. Names continue to come from the reviewed
+course rosters. Project views remain behind shared Slack sign-in.
+
+Deployment order: back up participation PostgreSQL; apply migration 010 through
+the API's existing predeploy command; deploy participation API and worker from the
+same service source; configure its reviewed private mappings and scoped bridge
+secret; then deploy this workspace. Keep existing tenant, allowlist, reminder
+flags and outbox intact. Mirror class messaging remains separately disabled.
+Rollback can disable `COURSE_REFLECTIONS_ENABLED`, remove the learning config,
+and deploy prior sources. Keep the additive learning tables and receipt evidence;
+do not roll back or recreate the participation database to revert a UI.
