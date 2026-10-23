@@ -248,7 +248,8 @@ def install_routes(app, settings, store, shared_session):
             if len(raw) > 1_000_000:
                 raise HTTPException(413, 'Body too large')
         expected = 'sha256=' + hmac.new(config['webhook_secret'].encode(), raw, hashlib.sha256).hexdigest()
-        if not hmac.compare_digest(expected, request.headers.get('X-Hub-Signature-256', '')):
+        provided = request.headers.get('X-Hub-Signature-256', '')
+        if not re.fullmatch(r'sha256=[a-f0-9]{64}', provided) or not hmac.compare_digest(expected, provided):
             raise HTTPException(401, 'Invalid webhook signature')
         delivery = request.headers.get('X-GitHub-Delivery', '')
         if not re.fullmatch(r'[A-Za-z0-9-]{1,100}', delivery):

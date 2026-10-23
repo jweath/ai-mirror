@@ -174,3 +174,11 @@ def test_partial_environment_does_not_fall_back_to_recovery_file(github):
     object.__setattr__(config, 'github_app_id', 'wrong-partial-app')
     with pytest.raises(GitHubSetupError, match='incomplete'):
         credentials(config)
+
+
+def test_malformed_signature_is_rejected_without_server_error(github):
+    client, _, config, data = github
+    save_credentials(config, data)
+    response = client.post(WORKSPACE+'/hooks/github', content=b'{}',
+                           headers=[(b'X-Hub-Signature-256', b'\xff'), (b'X-GitHub-Delivery', b'invalid-signature')])
+    assert response.status_code == 401
