@@ -114,6 +114,11 @@ class Settings:
     session_secret: str = ""
     slack_client_id: str = ""
     slack_client_secret: str = ""
+    workspace_enabled: bool = False
+    workspace_url: str = "https://jweath.com/entr/workspace"
+    progress_roster_path: str = ""
+    progress_db_path: str = "data/progress.db"
+    directory_sources_path: str = ""
 
     @classmethod
     def from_env(cls):
@@ -136,6 +141,11 @@ class Settings:
             session_secret=os.getenv("MIRROR_SESSION_SECRET", ""),
             slack_client_id=os.getenv("SLACK_CLIENT_ID", ""),
             slack_client_secret=os.getenv("SLACK_CLIENT_SECRET", ""),
+            workspace_enabled=os.getenv("COURSE_WORKSPACE_ENABLED", "false").lower() == "true",
+            workspace_url=os.getenv("COURSE_WORKSPACE_URL", "https://jweath.com/entr/workspace").rstrip("/"),
+            progress_roster_path=os.getenv("PROGRESS_ROSTER_PATH", ""),
+            progress_db_path=os.getenv("PROGRESS_DB_PATH", "data/progress.db"),
+            directory_sources_path=os.getenv("COURSE_DIRECTORY_SOURCES_PATH", ""),
         )
 
 

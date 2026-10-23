@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Courses · ENTR</title><link rel="stylesheet" href="__BASE__/assets/workspace.css"><script src="__BASE__/assets/theme.js" defer></script><script src="__BASE__/assets/workspace.js" defer></script></head>
+<body data-base="__BASE__" data-mode="__MODE__">
+<a class="skip" href="#content">Skip to content</a>
+<header class="site-header"><a class="brand" href="/entr/">ENTR</a><nav aria-label="Account"><a href="__BASE__/">My courses</a><a id="instructor-link" href="/entr/instructor/" hidden>Instructor home</a><label class="sr-only" for="theme">Theme</label><select id="theme"><option value="auto">Auto</option><option value="light">Light</option><option value="dark">Dark</option></select><button id="logout" class="quiet" hidden>Sign out</button></nav></header>
+<div class="shell">
+ <aside id="sidebar" hidden><p class="eyebrow">Instructor workspace</p><nav aria-label="Workspace views"><a href="#overview" data-view="overview">Overview</a><a href="#projects" data-view="projects">Projects</a><a href="#people" data-view="people">People</a><a href="#connections" data-view="connections">Connections</a></nav><div class="sidebar-links"><a href="/entr/5000/">5000 course home</a><a href="/entr/5500/">5500 course home</a></div></aside>
+ <main><div class="heading"><div><p class="eyebrow">Fall 2026</p><h1 id="title">My courses</h1></div><div id="controls" class="controls" hidden><label class="sr-only" for="course-filter">Course and section</label><select id="course-filter"><option value="all">All courses</option></select><button id="refresh" class="secondary">Refresh</button></div></div>
+ <p id="message" role="status" aria-live="polite"></p>
+ <section id="login" hidden><h2>Open your courses</h2><a id="sign-in" class="button" href="__AUTH__/auth/slack?next=workspace">Sign in with Slack</a></section>
+ <div id="content" tabindex="-1"></div>
+ <footer id="footer" hidden><span id="checked"></span><a href="/entr/general/tools-and-workflows/">Where things go</a></footer>
+ </main>
+</div>
+</body></html>

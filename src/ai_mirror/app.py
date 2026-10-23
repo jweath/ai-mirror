@@ -17,13 +17,16 @@ from . import __version__
 from .config import ROOT, Course, Settings, StrictModel
 from .dashboard import create_dashboard
 from .digest import generate
+from .directory import Directory
 from .evidence import GitHub, collect_github
 from .pinup import PinConflict, PinUpdate, board, save_pin
+from .progress import create_progress
 from .rehearsal import capture_rehearsal, send_rehearsal
 from .slack import Slack, SlackError, plain_slack, verify_signature
 from .slack_evidence import collect_slack, project_event
 from .store import Store, content_hash, now_iso
 from .workflow import deliver_one, enqueue_due, handle_command, handle_event, plan
+from .workspace import create_workspace
 
 logger = logging.getLogger("ai_mirror")
 
@@ -120,7 +123,7 @@ def create_app(settings=None, store=None, slack=None):
             return JSONResponse({"detail": "Body too large"}, status_code=413)
         response = await call_next(request)
         response.headers["Cache-Control"] = (
-            "no-store" if request.url.path.startswith(("/api", "/course")) else "no-cache"
+            "no-store" if request.url.path.startswith(("/api", "/course", "/workspace", "/progress")) else "no-cache"
         )
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
@@ -353,7 +356,20 @@ def create_app(settings=None, store=None, slack=None):
         return handle_command(store, form)
 
     app.include_router(api)
-    app.mount("/course", create_dashboard(settings, store, api, admin), name="course")
+    directory = Directory(settings, store) if settings.workspace_enabled else None
+    dashboard = create_dashboard(settings, store, api, admin, directory)
+    app.mount("/course", dashboard, name="course")
+    if directory:
+        progress = create_progress(settings, directory, dashboard.state.shared_session,
+                                   dashboard.state.logout, dashboard.state.slack_enabled)
+        workspace = create_workspace(settings, store, directory, progress.state.store,
+                                     dashboard.state.shared_session, dashboard.state.logout,
+                                     dashboard.state.slack_enabled)
+        app.mount("/workspace", workspace, name="workspace")
+        app.mount("/progress", progress, name="progress")
+        app.state.workspace = workspace
+        app.state.directory = directory
+        app.state.progress = progress
     app.mount("/assets", StaticFiles(directory=ROOT / "web"), name="assets")
     return app
 
