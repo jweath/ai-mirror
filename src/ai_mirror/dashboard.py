@@ -27,11 +27,18 @@ def digest(value):
     return hashlib.sha256(value.encode()).hexdigest()
 
 
-def create_dashboard(settings, store, instructor_router=None, admin_dependency=None):
+def create_dashboard(settings, store, instructor_router=None, admin_dependency=None, directory=None):
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     public = urlsplit(settings.dashboard_url)
     prefix = public.path.rstrip("/")
     origin = f"{public.scheme}://{public.netloc}"
+    cookie_path = prefix + "/"
+    if directory:
+        workspace = urlsplit(settings.workspace_url)
+        if (workspace.scheme != public.scheme or workspace.netloc != public.netloc
+                or workspace.path != "/entr/workspace"):
+            raise ValueError("The course workspace must use the course site's /entr/workspace path")
+        cookie_path = "/entr/"
     configured = bool(settings.slack_client_id and settings.slack_client_secret
                       and len(settings.session_secret) >= 32 and public.scheme == "https")
     oauth = OAuth()
@@ -66,7 +73,15 @@ def create_dashboard(settings, store, instructor_router=None, admin_dependency=N
             return {"id": user_id, "name": "Course member", "role": "student"}
         return None
 
-    def session(request: Request):
+    def any_identity(user_id):
+        if directory and not str(user_id).startswith("admin/"):
+            return directory.identity(user_id)
+        user = identity(user_id)
+        if user:
+            return {**user, "grants": [{"course": "5000", "section": "115", "role": user["role"]}]}
+        return None
+
+    def shared_session(request: Request):
         sid = request.cookies.get(COOKIE, "")
         if not sid:
             raise HTTPException(401, "Sign in to open the course projects")
@@ -74,7 +89,7 @@ def create_dashboard(settings, store, instructor_router=None, admin_dependency=N
             db.execute("DELETE FROM browser_sessions WHERE expires < ?", (time.time(),))
             row = db.execute("SELECT * FROM browser_sessions WHERE id_hash=? AND expires>?",
                              (digest(sid), time.time())).fetchone()
-        user = identity(row["user_id"]) if row else None
+        user = any_identity(row["user_id"]) if row else None
         if not user:
             raise HTTPException(401, "Your course session has expired")
         if request.method not in ("GET", "HEAD"):
@@ -82,6 +97,13 @@ def create_dashboard(settings, store, instructor_router=None, admin_dependency=N
                     or not hmac.compare_digest(request.headers.get("x-csrf-token", ""), row["csrf"])):
                 raise HTTPException(403, "Refresh the board before making this change")
         return {**user, "csrf": row["csrf"]}
+
+    def session(request: Request):
+        signed_in = shared_session(request)
+        user = identity(signed_in["id"])
+        if not user:
+            raise HTTPException(403, "This course is not on your roster")
+        return {**user, "csrf": signed_in["csrf"]}
 
     def instructor(user=Depends(session)):
         if user["role"] != "instructor":
@@ -96,7 +118,9 @@ def create_dashboard(settings, store, instructor_router=None, admin_dependency=N
             db.execute("INSERT INTO browser_sessions VALUES (?,?,?,?)",
                        (digest(sid), user_id, csrf, time.time() + LIFETIME))
         response.set_cookie(COOKIE, sid, max_age=LIFETIME, secure=True, httponly=True,
-                            samesite="lax", path=prefix + "/")
+                            samesite="lax", path=cookie_path)
+        if cookie_path != prefix + "/":
+            response.delete_cookie(COOKIE, path=prefix + "/", secure=True, httponly=True, samesite="lax")
         return response
 
     @app.middleware("http")
@@ -154,7 +178,11 @@ def create_dashboard(settings, store, instructor_router=None, admin_dependency=N
         course = store.course()
         if not configured or not course:
             return HTMLResponse("Slack sign-in is being connected. Please check back shortly.", status_code=503)
-        request.session["instructor_return"] = request.query_params.get("next") == "instructor"
+        allowed = {"instructor"}
+        if directory:
+            allowed |= {"workspace", "instructor-home", "5500-1135", "5500-255"}
+        target = request.query_params.get("next", "")
+        request.session["return_to"] = target if target in allowed else ""
         return await oauth.slack.authorize_redirect(
             request, settings.dashboard_url + "/auth/callback", team=course.workspace_id,
             response_mode="form_post")
@@ -171,15 +199,23 @@ def create_dashboard(settings, store, instructor_router=None, admin_dependency=N
             course = store.course()
             user_id = claims.get("https://slack.com/user_id")
             if (not course or claims.get("https://slack.com/team_id") != course.workspace_id
-                    or not identity(user_id)):
+                    or not any_identity(user_id)):
                 raise ValueError("not_rostered")
         except Exception:
             request.session.clear()
             return HTMLResponse("Sign-in could not be completed for this course. Use your course Slack account.",
                                 status_code=403)
-        destination = "/instructor" if request.session.get("instructor_return") else "/"
+        targets = {"instructor": settings.dashboard_url + "/instructor"}
+        if directory:
+            targets.update({"workspace": settings.workspace_url + "/",
+                            "instructor-home": origin + "/entr/instructor/",
+                            "5500-1135": origin + "/entr/5500/2026/fall/1135/",
+                            "5500-255": origin + "/entr/5500/2026/fall/255/"})
+        destination = targets.get(request.session.get("return_to"), settings.dashboard_url + "/")
+        if directory and not identity(user_id) and destination.startswith(settings.dashboard_url):
+            destination = settings.workspace_url + "/"
         request.session.clear()
-        return issue(RedirectResponse(settings.dashboard_url + destination, status_code=303), user_id,
+        return issue(RedirectResponse(destination, status_code=303), user_id,
                      request.cookies.get(COOKIE, ""))
 
     @app.post("/api/logout")
@@ -189,7 +225,9 @@ def create_dashboard(settings, store, instructor_router=None, admin_dependency=N
             db.execute("DELETE FROM browser_sessions WHERE id_hash=?",
                        (digest(request.cookies.get(COOKIE, "")),))
         response = JSONResponse({"signed_out": True})
-        response.delete_cookie(COOKIE, path=prefix + "/", secure=True, httponly=True, samesite="lax")
+        response.delete_cookie(COOKIE, path=cookie_path, secure=True, httponly=True, samesite="lax")
+        if cookie_path != prefix + "/":
+            response.delete_cookie(COOKIE, path=prefix + "/", secure=True, httponly=True, samesite="lax")
         return response
 
     @app.get("/api/board")
@@ -243,4 +281,7 @@ def create_dashboard(settings, store, instructor_router=None, admin_dependency=N
         return JSONResponse({"detail": exc.code}, status_code=502)
 
     app.mount("/assets", StaticFiles(directory=ROOT / "web"), name="course-assets")
+    app.state.shared_session = shared_session
+    app.state.logout = logout
+    app.state.slack_enabled = configured
     return app

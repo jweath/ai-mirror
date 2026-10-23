@@ -74,3 +74,7 @@ The service only captures registered owners' replies to its prompt threads, expl
 This design uses the course's actual daily-summary practices: individualized entrepreneurial/technical goals, small tests with decision thresholds, human verification of AI, goal-based peer feedback, and benefit-first progress reports. UGA's muddiest point, reflective writing, directed paraphrasing, and minute paper inform the reflection and instructor-response loop. [Research and design notes](docs/design.md) link the primary sources and distinguish design choices from observed course practice.
 
 [MIT license](LICENSE). Public code and instructional materials; private student records stay outside Git.
+
+## Shared course workspace
+
+The Fall 2026 [course workspace](docs/course-workspace.md) provides shared Slack sign-in, a private instructor home and the section-scoped 5500 milestone views in the existing service. Source rosters, the static published brief and separate milestone storage preserve record ownership.
