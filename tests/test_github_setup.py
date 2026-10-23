@@ -146,12 +146,15 @@ def test_refresh_is_bounded_and_does_not_overwrite_full_scan(github, store, monk
     _, _, config, data = github
     save_credentials(config, data)
     store.set('last_github_collection', {'at': 'prior-full-scan'})
-    monkeypatch.setattr(AppProvider, 'probe', lambda self, repository: {'installed': False, 'error': 'installation removed'})
-    refreshed = refresh_connections(store, config, now)
-    assert 0 < len(refreshed) <= 2
+    calls = []
+    def probe(self, repository):
+        calls.append(repository)
+        return {'installed': False, 'error': 'installation removed'}
+    monkeypatch.setattr(AppProvider, 'probe', probe)
+    assert refresh_connections(store, config, now) == []
+    assert len(calls) == 2
     assert store.get('last_github_collection')['at'] == 'prior-full-scan'
-    for project in refreshed:
-        assert not store.get('github_connection/'+project)['installed']
+    assert sum(bool(store.get('github_connection/'+p.id)) for p in store.course().projects) == 2
 
 
 def test_config_fail_closed_and_query_redaction(github):
@@ -182,3 +185,18 @@ def test_malformed_signature_is_rejected_without_server_error(github):
     response = client.post(WORKSPACE+'/hooks/github', content=b'{}',
                            headers=[(b'X-Hub-Signature-256', b'\xff'), (b'X-GitHub-Delivery', b'invalid-signature')])
     assert response.status_code == 401
+
+
+@pytest.mark.parametrize('installed', [True, False])
+def test_changed_repositories_refresh_without_turning_health_checks_into_scans(github, store, course, monkeypatch, now, installed):
+    _, _, config, data = github
+    save_credentials(config, data)
+    project = course.projects[0]
+    if not installed:
+        with store.connect() as db:
+            db.execute('INSERT INTO github_refresh VALUES (?,?)', (project.id, now.timestamp()))
+    monkeypatch.setattr(AppProvider, 'probe', lambda self, repository: {'installed': installed, 'issues_enabled': installed})
+    refreshed = refresh_connections(store, config, now)
+    assert project.id in refreshed
+    assert len(refreshed) <= 2
+    assert refresh_connections(store, config, now) == ([course.projects[2].id] if installed else [])
