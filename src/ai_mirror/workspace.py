@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import ROOT
 from .course_context import CourseContext
+from .github_setup import install_routes
 from .learning import people_with_photos, project_learning
 from .pinup import board
 from .progress import SECTIONS, Progress
@@ -27,6 +28,7 @@ def create_workspace(settings, mirror, directory, progress, shared_session, logo
     prefix = urlsplit(settings.workspace_url).path
     context = CourseContext()
     app.state.context = context
+    install_routes(app, settings, mirror, shared_session)
 
     def instructor(user=Depends(shared_session)):
         if not instructor_courses(user):
