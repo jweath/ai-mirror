@@ -38,9 +38,11 @@ function showPrep() {
  const chooser=el('div',undefined,'snapshot-choice');
  for(const [value,label] of [['current','Latest responses'],['cutoff','At prep cutoff']]) {const button=el('button',label,'secondary');button.setAttribute('aria-pressed',String(prepSnapshot===value));button.addEventListener('click',()=>{prepSnapshot=value;showPrep();});chooser.append(button);}content.append(chooser);
  if(learningData.error)content.append(el('p',learningData.error,'error'));
+ let shown=0;
  for(const assignment of learningData.assignments || []) {
+  const selectedSections=assignment.sections.filter(s=>allowed({course:'5500',section:s.id}));if(!selectedSections.length)continue;shown++;
   const heading=el('div',undefined,'learning-heading');heading.append(el('h2',assignment.title),link(assignment.source_url,'Assignment instructions'));content.append(heading);
-  for(const section of assignment.sections.filter(s=>allowed({course:'5500',section:s.id}))) {
+  for(const section of selectedSections) {
    const article=el('section',undefined,'prep-section');article.append(el('h3','ENTR 5500 · '+(section.id==='1135'?'11:35':'2:55')));
    article.append(el('p','Prep cutoff '+date(section.prep_cutoff,true)+' Eastern · assignment due before class','muted small'));
    const channels=section.channels || [],connected=channels.filter(c=>c.complete).length;
@@ -65,7 +67,7 @@ function showPrep() {
    content.append(article);
   }
  }
- if(!(learningData.assignments || []).length)content.append(el('p','No prep assignment is connected yet.','empty'));
+ if(!shown)content.append(el('p','No prep assignment is connected for this course selection.','empty'));
  $('content').replaceChildren(content);
 }
 function showCheckins() {
@@ -99,7 +101,7 @@ function courseCard(course, personal=false) {
   if(course.my_work.document_url)links.append(link(course.my_work.document_url,course.course==='5000'?'Repository':'Group document'));
   work.append(links);card.append(work);
  }
- if(personal && course.course==='5500' && learningData?.assignments?.length)card.append(personalLearning(course));
+ if(personal && course.course==='5500' && learningData?.assignments?.some(a=>a.sections.some(s=>s.id===course.section && s.students.length)))card.append(personalLearning(course));
  if(personal) {
   const upcoming=el('div',undefined,'work');upcoming.append(el('h3','Upcoming'));
   if(course.brief.expired || !course.brief.connected)upcoming.append(el('p',course.brief.expired?'The course brief needs review. Use the course home for current instructions.':'Current coursework could not be loaded.','muted small'));
