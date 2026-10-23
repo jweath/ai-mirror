@@ -26,8 +26,11 @@ function members(profiles) {
 }
 function responseDetail(person,post) {
  const details=el('details',undefined,'prep-response'),title=el('summary',person.name+' · '+person.group);details.append(title);
- for(const [key,label] of [['recommendation','Recommendation'],['detail','Case detail'],['question','Discussion question']]){details.append(el('h4',label),el('p',post[key] || 'Not identified in this post.'));}
- const original=el('details');original.append(el('summary','Original post'),el('p',post.text,'source-text'));details.append(original,link(post.url,'Open in Slack','small'));return details;
+ const fields=[['recommendation','Recommendation'],['detail','Case detail'],['question','Discussion question']],identified=fields.some(([key])=>post[key]);
+ if(!post.complete)details.append(el('p','Review this post to confirm its preparation response.','muted small'));
+ for(const [key,label] of fields)if(post[key])details.append(el('h4',label),el('p',post[key]));
+ if(identified){const original=el('details');original.append(el('summary','Original post'),el('p',post.text,'source-text'));details.append(original);}else details.append(el('p',post.text,'source-text'));
+ details.append(link(post.url,'Open in Slack','small'));return details;
 }
 function showPrep() {
  if(!learningData){$('content').replaceChildren(el('p','Loading prep responses…','empty'));return;}
