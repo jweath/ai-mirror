@@ -8,6 +8,7 @@
   "active": false,
   "activated_at": null,
   "github_enabled": false,
+  "activity_source": "slack",
   "retention_days": 90,
   "students": [
     {"id": "alex", "name": "Alex (example)", "slack_id": "UALEX", "github_login": "example-alex", "project_id": "garden"},

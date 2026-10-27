@@ -8,16 +8,18 @@ import time
 from urllib.parse import urlsplit
 
 from authlib.integrations.starlette_client import OAuth
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.sessions import SessionMiddleware
 
+from .activity import timeline
 from .config import ROOT
 from .evidence import GitHub, collect_github
 from .pinup import PinConflict, PinUpdate, board, save_pin
-from .slack import SlackError
+from .slack import Slack, SlackError
+from .slack_evidence import collect_slack
 
 COOKIE = "__Secure-entr5000_session"
 LIFETIME = 12 * 60 * 60
@@ -137,8 +139,11 @@ def create_dashboard(settings, store, instructor_router=None, admin_dependency=N
         html = html.replace('<body class="pinup-page">',
                             f'<body class="pinup-page" data-course-base="{prefix}">')
         html = html.replace('/assets/pinup.js"', '/assets/course.js"')
-        html = html.replace('Instructor preview', 'Course projects')
-        html = html.replace('href="/instructor"', f'href="{prefix}/instructor"')
+        html = html.replace('<span class="access-badge">Instructor preview</span>', '')
+        workspace_path = urlsplit(settings.workspace_url).path.rstrip('/')
+        html = html.replace('href="/instructor"', f'href="{workspace_path.removesuffix("/workspace")}/instructor/"')
+        html = html.replace('<a data-instructor-link',
+                            f'<a href="{workspace_path}/">My courses</a><a data-instructor-link')
         html = html.replace('<h2>Open the project board</h2>',
                             f'<h2>Course projects</h2><a id="slack-login" class="product-link" '
                             f'href="{prefix}/auth/slack">Sign in with Slack</a>'
@@ -233,6 +238,22 @@ def create_dashboard(settings, store, instructor_router=None, admin_dependency=N
     @app.get("/api/board")
     def course_board(user=Depends(session)):
         return board(store, shared=user["role"] != "instructor")
+
+    @app.get("/api/projects/{project_id}/timeline")
+    def project_timeline(project_id: str, cursor: str | None = Query(default=None, max_length=800),
+                         user=Depends(session)):
+        project = next((p for p in store.course().projects if p.id == project_id), None)
+        if not project:
+            raise HTTPException(404, "Project not found")
+        return timeline(store, project, shared=user["role"] != "instructor", cursor=cursor)
+
+    @app.post("/api/collect-slack")
+    async def sync_slack(user=Depends(instructor)):
+        last = store.get("last_slack_collection", {}).get("at")
+        from datetime import datetime, timezone
+        if last and (datetime.now(timezone.utc) - datetime.fromisoformat(last)).total_seconds() < 60:
+            return {"status": "recent", "warnings": store.get("last_slack_collection", {}).get("warnings", [])}
+        return await run_in_threadpool(collect_slack, store, Slack(settings.slack_token))
 
     @app.put("/api/projects/{project_id}")
     def edit(project_id: str, update: PinUpdate, user=Depends(instructor)):

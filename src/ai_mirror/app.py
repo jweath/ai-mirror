@@ -60,17 +60,18 @@ def tick(store, settings, slack, learning=None):
         return
     now = datetime.now(timezone.utc)
     last = store.get("last_github_collection", {}).get("at")
-    refreshed = refresh_connections(store, settings, now) if settings.workspace_enabled else []
-    interval = timedelta(minutes=30 if (settings.github_token or credentials(settings)) else 60)
+    direct = course.activity_source == "direct"
+    refreshed = refresh_connections(store, settings, now) if settings.workspace_enabled and direct else []
+    interval = timedelta(minutes=30 if direct and (settings.github_token or credentials(settings)) else 60)
     collected_full = False
-    if course.github_enabled and (not last or datetime.fromisoformat(last) < now - interval):
+    if direct and course.github_enabled and (not last or datetime.fromisoformat(last) < now - interval):
         github = GitHub.configured(settings, store.course())
         try:
             collect_github(store, github, now)
             collected_full = True
         finally:
             github.close()
-    if course.github_enabled and refreshed and not collected_full:
+    if direct and course.github_enabled and refreshed and not collected_full:
         github = GitHub.configured(settings, course)
         try:
             collect_github(store, github, now, project_ids=set(refreshed))
@@ -271,6 +272,10 @@ def create_app(settings=None, store=None, slack=None):
             return collect_github(store, github)
         finally:
             github.close()
+
+    @api.post("/api/collect-slack", dependencies=[Depends(admin)])
+    def collect_project_slack():
+        return collect_slack(store, slack)
 
     @api.post("/api/digests", dependencies=[Depends(admin)])
     def digest():

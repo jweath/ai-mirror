@@ -57,6 +57,7 @@ class Course(StrictModel):
     active: bool = False
     activated_at: datetime | None = None
     github_enabled: bool = False
+    activity_source: Literal["direct", "slack"] = "slack"
     slack_enabled: bool = False
     github_slack_app_id: str | None = Field(default=None, pattern=r"^A[A-Z0-9]+$")
     retention_days: int = Field(default=90, ge=7, le=730)

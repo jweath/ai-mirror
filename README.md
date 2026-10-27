@@ -2,7 +2,7 @@
 
 **AI gathers the evidence. Students do the thinking and writing.**
 
-AI Mirror extends the ENTR 5000 Build Journal from Sprint 3 onward. It combines a single portable student skill with a small instructor service for Slack exit tickets, GitHub evidence, peer feedback, and private review.
+AI Mirror extends the ENTR 5000 Build Journal from Sprint 3 onward. It combines a single portable student skill with a small instructor service for Slack exit tickets, project activity through Slack, peer feedback, and private review.
 
 [Get the student file](https://ai-mirror-production-9c9f.up.railway.app/skill.md) · [Student assignment](docs/assignment.md) · [Instructor guide](docs/instructor.md) · [Morning activation checklist](docs/activation.md)
 
@@ -18,14 +18,14 @@ The assistant can provide evidence and suggestions first. Students preserve that
 
 ## For the instructor
 
-The [course dashboard](https://jweath.com/entr/5000/2026/fall/) provides source-backed goals, next tests and commitments beside product links, GitHub activity, and captured project updates. Slack sign-in and an explicit roster protect the class view. John can use the same Slack session for the instructor workspace; the separate operator token remains available for recovery. Private coaching, journals, muddy points, and digests are excluded from the student board.
+The [course dashboard](https://jweath.com/entr/5000/2026/fall/) provides source-backed goals, next tests and commitments beside product links and a newest-first timeline of team posts, GitHub notifications from Slack, and project pins. Slack sign-in and an explicit roster protect the class view. John can use the same Slack session for the instructor workspace; the separate operator token remains available for recovery. Private coaching, journals, muddy points, and digests are excluded from the student board.
 
 The [deployed workspace](https://ai-mirror-production-9c9f.up.railway.app/instructor) offers:
 
 - A private roster and explicit schedule, with a preview before activation.
 - One Slack exit-ticket thread per project channel per class meeting; each owner replies individually.
 - Scoped capture of replies to those prompts; `/mirror muddy` for a private note.
-- GitHub evidence from registered repositories and journals pinned to exact commits, including automatic discovery of closed submission issues.
+- Slack project activity and GitHub notification titles from all configured team channels, including threaded replies. The current course uses Slack as its activity source; direct repository reads and the custom reader app are retired.
 - Deterministic peer assignments that exclude project partners.
 - A private 1–2 sentence digest and one feedback suggestion per student. The instructor reviews and edits before queueing feedback to a project channel.
 - Durable delivery receipts, send holds, and recovery for uncertain sends.
@@ -67,7 +67,7 @@ A single FastAPI process serves the site, authenticated instructor API, signed S
 
 AI Mirror is an independent service within the instOS Railway project. It does not alter instOS attendance or its native vault. Its explicit learning-data boundary and a future instOS API adapter are described in [architecture](docs/architecture.md). Data handling and retention are in [privacy](docs/privacy.md); deployment and recovery are in [operations](docs/operations.md).
 
-The service only captures registered owners' replies to its prompt threads, explicit `/mirror` submissions, and configured GitHub sources. It does not ingest all channel history. The standalone student file remains usable if the service is offline.
+The project feed captures registered owners' shared posts and replies in their configured project rooms, plus titles and links from the official GitHub Slack app for the configured repository. Notification bodies and repository files are excluded. Private reflections, journals, and digests stay outside the class dashboard. The standalone student file remains usable if the service is offline.
 
 ## Instructional grounding
 

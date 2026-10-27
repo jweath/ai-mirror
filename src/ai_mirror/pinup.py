@@ -7,6 +7,7 @@ from urllib.parse import urlsplit
 
 from pydantic import Field, field_validator, model_validator
 
+from .activity import notifications, project_activity, slack_status
 from .config import StrictModel
 from .learning import photo_url
 from .store import content_hash
@@ -84,6 +85,11 @@ def save_pin(store, project_id, update, now=None):
         revision = content_hash(previous) if previous else None
         if revision != update.expected_revision:
             raise PinConflict("This pin changed. Refresh and review the current version before saving.")
+        for snapshot in [previous, value]:
+            if snapshot:
+                db.execute("INSERT OR IGNORE INTO pin_history VALUES (?,?,?,?,?)",
+                           (content_hash([course.sprint, project_id, snapshot]), course.sprint, project_id,
+                            json.dumps(snapshot), snapshot["updated_at"]))
         db.execute("INSERT OR REPLACE INTO settings VALUES (?,?)", (key, json.dumps(value)))
     store.audit("project_pin_updated", {"project_id": project_id, "sprint": course.sprint,
                                         "revision": content_hash(value)})
@@ -104,12 +110,15 @@ def board(store, now=None, shared=False):
         if shared and pin and not pin["pin"].get("shared"):
             pin = None
         evidence = store.get(f"project_evidence/{course.sprint}/{project.id}")
+        if course.activity_source == "slack":
+            evidence = None
         captured = [{k: entry[k] for k in ("id", "student_id", "text", "source", "created_at")}
                     for entry in entries if entry["student_id"] in ids
                     and not entry["private"] and entry["kind"] in ("exit_ticket", "project_update")][:12]
         checked = evidence.get("collected_at") if evidence else None
         stale = not checked or datetime.fromisoformat(checked) < now - timedelta(hours=48)
         pin_age = (pin["pin"].get("source_at") or pin["updated_at"]) if pin else None
+        activity = project_activity(store, project, shared, now, entries)
         projects.append({
             "id": project.id, "name": project.name,
             "repository_url": f"https://github.com/{project.repository}" if project.repository else None,
@@ -125,7 +134,14 @@ def board(store, now=None, shared=False):
             "collection_enabled": course.github_enabled, "updates": captured,
             "slack_collection": store.get(f"slack_collection/{project.id}"),
             "github_notifications": store.get(f"github_notifications/{course.sprint}/{project.id}", {}),
+            "activity_source": course.activity_source,
+            "slack_status": slack_status(store, course, project, now),
+            "recent_activity": activity[:1], "activity_revision": content_hash(activity),
         })
+        projects[-1]["github_notifications"] = notifications(store, course, project, now)
     return {"course": course.name, "sprint": course.sprint, "projects": projects,
+            "mention_names": {**{s.slack_id: s.name for s in course.students},
+                              **{uid: "John" for uid in course.instructor_slack_ids}},
             "active": course.active, "github_enabled": course.github_enabled,
-            "slack_enabled": course.slack_enabled, "generated_at": now.isoformat()}
+            "slack_enabled": course.slack_enabled, "activity_source": course.activity_source,
+            "retention_days": course.retention_days, "generated_at": now.isoformat()}

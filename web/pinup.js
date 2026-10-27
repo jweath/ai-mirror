@@ -91,7 +91,7 @@ function editPin(project) {
 }
 $('login-form').addEventListener('submit', event => { event.preventDefault(); token = $('token').value; $('token').value = ''; action(event.submitter, () => refresh()); });
 $('refresh').addEventListener('click', event => action(event.currentTarget, () => refresh()));
-$('collect').addEventListener('click', event => action(event.currentTarget, async () => { say('Collecting the configured repositories…'); const result = await api('collect', 'POST'); await refresh(true); say(result.status === 'disabled' ? 'Enable GitHub collection in the saved course configuration first.' : 'Collection finished. ' + result.warnings.join(' ')); }));
+$('collect').addEventListener('click', event => action(event.currentTarget, async () => { say('Collecting the configured repositories…'); const result = await api(snapshot?.activity_source === 'slack' ? 'collect-slack' : 'collect', 'POST'); await refresh(true); say(result.status === 'disabled' ? 'Enable GitHub collection in the saved course configuration first.' : 'Collection finished. ' + result.warnings.join(' ')); }));
 $('logout').addEventListener('click', () => { closeSession(); say('Session closed.'); });
 $('search').addEventListener('input', render); $('filter').addEventListener('change', render);
 $('cancel').addEventListener('click', () => $('editor').close());

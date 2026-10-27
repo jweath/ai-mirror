@@ -1,123 +1,55 @@
 'use strict';
-let user = null;
-const base = document.body.dataset.courseBase;
-const canEdit = () => user?.role === 'instructor';
-let snapshot = null;
-let editing = null;
-let loading = false;
-const $ = id => document.getElementById(id);
-function el(tag, text, cls) { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (cls) node.className = cls; return node; }
-function say(text, error = false) { $('message').textContent = text; $('message').classList.toggle('error', error); }
-function link(url, text, cls) { try { const parsed = new URL(url); if (parsed.protocol !== 'https:' || parsed.username || parsed.password) return null; const node = el('a', text, cls); node.href = url; node.target = '_blank'; node.rel = 'noopener noreferrer'; return node; } catch { return null; } }
-function dateTime(value) { return value ? new Date(value).toLocaleString(undefined, {timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'}) + ' ET' : 'Not recorded'; }
-function dateOnly(value) { return new Date(value + 'T12:00:00Z').toLocaleDateString(undefined, {timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric'}); }
-async function api(path, method = 'GET', body) {
-  const response = await fetch(base + '/api/' + path, {method, cache: 'no-store', headers: {'X-CSRF-Token': user?.csrf || '', 'Content-Type': 'application/json'}, ...(body === undefined ? {} : {body: JSON.stringify(body)})});
-  const data = await response.json();
-  if (!response.ok) { if (response.status === 401) closeSession(); throw new Error(typeof data.detail === 'string' ? data.detail : 'Check the source links, date, and field lengths.'); }
-  return data;
+const $=id=>document.getElementById(id),base=document.body.dataset.courseBase;
+let user=null,snapshot=null,editing=null,loading=false,selected=null,detailStamp=null,generation=0,returnProject=null,returnScroll=0;
+const caches=new Map(),narrow=matchMedia('(max-width:799px)');
+const canEdit=()=>user?.role==='instructor';
+function el(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;}
+function say(text,error=false){$('message').textContent=text;$('message').classList.toggle('error',error);}
+function link(url,text,cls){try{const u=new URL(url);if(u.protocol!=='https:'||u.username||u.password)return null;const n=el('a',text,cls);n.href=u.href;n.target='_blank';n.rel='noopener noreferrer';return n;}catch{return null;}}
+function dateTime(value){return value?new Intl.DateTimeFormat('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',timeZone:'America/New_York',timeZoneName:'short'}).format(new Date(value)):'Not recorded';}
+function dateOnly(value){return new Intl.DateTimeFormat('en-US',{month:'short',day:'numeric',timeZone:'UTC'}).format(new Date(value+'T12:00:00Z'));}
+function readable(text){return (text||'').replace(/<@([UW][A-Z0-9]+)>/g,(_,id)=>'@'+(snapshot?.mention_names?.[id]||'Slack member')).replace(/<[^>|]+\|([^>]+)>/g,'$1').replace(/<(https:\/\/[^>]+)>/g,'$1').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>');}
+function message(text){const p=el('p',undefined,'activity-text');const pieces=(text||'').split(/(<https:\/\/[^>]+>)/g);for(const piece of pieces){const m=piece.match(/^<(https:\/\/[^>|]+)(?:\|([^>]+))?>$/);if(m)p.append(link(m[1],readable(m[2]||m[1]))||el('span',readable(piece)));else p.append(document.createTextNode(readable(piece)));}return p;}
+async function api(path,method='GET',body){const r=await fetch(base+'/api/'+path,{method,cache:'no-store',headers:{'X-CSRF-Token':user?.csrf||'','Content-Type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})});if(!r.headers.get('content-type')?.includes('application/json'))throw new Error('Course data is temporarily unavailable. Try refreshing.');const data=await r.json();if(!r.ok){if(r.status===401)closeSession();throw new Error(typeof data.detail==='string'?data.detail:'Check the source links, date, and field lengths.');}return data;}
+async function action(button,fn){button.disabled=true;try{await fn();}catch(e){say(e.message,true);}finally{button.disabled=false;}}
+function closeSession(){user=null;snapshot=null;editing=null;selected=null;generation++;caches.clear();$('projects').replaceChildren();$('project-current').replaceChildren();$('activity').replaceChildren();$('workspace').hidden=true;$('login').hidden=false;if($('editor').open)$('editor').close();$('pin-form').reset();$('sync').textContent='';$('board-title').textContent='Projects';document.title='Projects · ENTR 5000';}
+function members(profiles){const list=el('div',undefined,'member-list');for(const person of profiles){const item=el('span',undefined,'member'),fallback=el('span',person.name.split(/\s+/).map(n=>n[0]).slice(0,2).join(''),'avatar fallback');try{const u=new URL(person.photo);if(u.protocol!=='https:'||!(u.hostname.endsWith('.slack-edge.com')||u.hostname==='secure.gravatar.com'))throw new Error();const img=el('img',undefined,'avatar');img.src=u.href;img.alt='';img.loading='lazy';img.referrerPolicy='no-referrer';img.addEventListener('error',()=>img.replaceWith(fallback),{once:true});item.append(img);}catch{item.append(fallback);}item.append(el('span',person.name));list.append(item);}return list;}
+function hasGap(p){return p.slack_status?.warning||p.slack_status?.stale||!p.slack_status?.history_complete;}
+function render(){if(!snapshot)return;const q=$('search').value.trim().toLowerCase(),filter=$('filter').value,projects=snapshot.projects.filter(p=>(!q||[p.name,...p.owners.map(s=>s.name),p.pin.goal,p.pin.next_test].join(' ').toLowerCase().includes(q))&&(filter==='all'||filter==='missing'&&(!p.pin.goal||!p.pin.live_url)||filter==='review'&&hasGap(p)));
+ $('projects').replaceChildren();$('result-count').textContent=`${projects.length} of ${snapshot.projects.length} projects`;
+ for(const p of projects){const card=el('a',undefined,'project-card activity-card');card.href='#project='+encodeURIComponent(p.id);card.dataset.project=p.id;card.setAttribute('aria-label',p.name+' project updates');const heading=el('div',undefined,'project-card-heading'),arrow=el('span','→');arrow.setAttribute('aria-hidden','true');heading.append(el('h2',p.name),arrow);card.append(heading,members(p.owners));if(p.pin.goal)card.append(el('p',p.pin.goal,'card-goal'));
+  if(p.pin.next_test){const next=el('div',undefined,'card-next');next.append(el('span','Next test','fine'),el('p',p.pin.next_test));card.append(next);}else if(p.recent_activity?.length){const latest=p.recent_activity[0],box=el('div',undefined,'card-next');box.append(el('span',(latest.kind==='github'?'GitHub via Slack':latest.kind==='pin'?'Project pin':latest.author)+' · '+dateTime(latest.at),'fine'),el('p',readable(latest.text||latest.title)));card.append(box);}else if(!p.pin.goal)card.append(el('p','No project update captured yet.','missing'));
+  if(p.slack_status?.warning)card.append(el('p','Slack read needs review','card-gap'));card.addEventListener('click',()=>{returnProject=p.id;returnScroll=scrollY;});$('projects').append(card);
+ }
+ if(!projects.length)$('projects').append(el('p','No projects match this view.','missing'));
 }
-async function action(button, fn) { button.disabled = true; try { await fn(); } catch (error) { say(error.message, true); } finally { button.disabled = false; } }
-function closeSession() { user = null; snapshot = null; editing = null; $('projects').replaceChildren(); $('workspace').hidden = true; $('login').hidden = false; $('editor').close(); $('pin-form').reset(); $('sync').textContent = ''; }
-async function refresh(quiet = false) {
-  if (loading || editing) return;
-  loading = true;
-  try {
-    const session = user;
-    const data = await api('board');
-    if (user !== session || !user) return;
-    const changed = JSON.stringify(snapshot?.projects) !== JSON.stringify(data.projects);
-    snapshot = data; $('login').hidden = true; $('workspace').hidden = false;
-    $('course-label').textContent = snapshot.course ? snapshot.sprint.replace(/^sprint-/, 'Sprint ') : 'Course setup needed';
-    $('sync').textContent = 'Board checked ' + dateTime(snapshot.generated_at);
-    $('setup').hidden = !!snapshot.course;
-    $('setup').textContent = !snapshot.course ? 'Import the verified roster in the instructor workspace to populate this board.' : 'Course setup is being completed.';
-    if (changed) render(); if (!quiet) say('');
-  } finally { loading = false; }
+function renderCurrent(p){const content=el('div',undefined,'current-project'),details=el('details',undefined,'project-information');details.open=!narrow.matches;details.append(el('summary','Project details'),members(p.owners));
+ const facts=el('dl',undefined,'project-focus');for(const [key,label] of [['goal','Desired outcome'],['next_test','Next useful test'],['commitment','Commitment']])if(p.pin[key]){const row=el('div');row.append(el('dt',label),el('dd',p.pin[key]));facts.append(row);}if(p.pin.commitment_date){const row=el('div');row.append(el('dt','Stated date'),el('dd',dateOnly(p.pin.commitment_date)));facts.append(row);}details.append(facts);
+ const links=el('nav',undefined,'project-links');links.setAttribute('aria-label','Project links');for(const [url,title,cls] of [[p.pin.live_url,'Open product','product-link'],[p.repository_url,'GitHub'],[p.issues_url,'Issues'],[p.channel_url,'Team Slack']]){const a=link(url,title,cls);if(a)links.append(a);}details.append(links);
+ if(p.pin.source_url){const source=el('p',undefined,'fine');source.append(link(p.pin.source_url,p.pin.source_kind==='student_statement'?'Student statement':'Instructor note'));if(p.pin.source_at)source.append(document.createTextNode(' · '+dateTime(p.pin.source_at)));details.append(source);if(canEdit()&&!p.pin.shared)details.append(el('p','This pin is visible only to the instructor.','fine'));}
+ if(p.slack_status?.warning)details.append(el('p',p.slack_status.warning,'notice'));else if(p.slack_status?.checked_at)details.append(el('p','Slack checked '+dateTime(p.slack_status.checked_at),'fine'));
+ details.append(el('p',p.github_notifications?.items?.length?`${p.github_notifications.items.length} GitHub notifications captured through Slack.`:'No GitHub notifications captured in this channel.','fine'));
+ content.append(details);if(canEdit()){const edit=el('button','Edit project pin','secondary');edit.addEventListener('click',()=>editPin(p));content.append(edit);}$('project-current').replaceChildren(content);
 }
-function hasGap(project) { return !project.collection_enabled || project.evidence_stale || !project.evidence?.complete; }
-function members(profiles) {
- const list=el('div',undefined,'member-list');
- for(const person of profiles || []) { const item=el('span',undefined,'member');const photo=el('span',person.name.split(/\s+/).map(n=>n[0]).slice(0,2).join(''),'avatar fallback');
-  if(person.photo) { try {const u=new URL(person.photo);if(u.protocol==='https:' && (u.hostname.endsWith('.slack-edge.com') || u.hostname==='secure.gravatar.com')){const img=el('img',undefined,'avatar');img.src=u.href;img.alt='';img.loading='lazy';img.referrerPolicy='no-referrer';img.addEventListener('error',()=>img.replaceWith(photo),{once:true});item.append(img);}else item.append(photo);}catch{item.append(photo);}}else item.append(photo);
-  item.append(el('span',person.name));list.append(item);
- }return list;
+function eventNode(e){const item=el('li',undefined,'activity-event'),article=el('article'),time=el('time',dateTime(e.at));time.dateTime=e.at;article.append(time);
+ const kind=e.kind==='github'?'GitHub via Slack'+(e.event&&e.event!=='GitHub notification'?' · '+e.event:''):e.kind==='pin'?(e.pin.source_kind==='student_statement'?'Student statement · recorded by instructor':'Instructor note'):'Slack project update';article.append(el('p',kind,'activity-kind'),el('h3',e.kind==='owner'?e.author:e.title));
+ if(e.kind==='owner')article.append(message(e.text));
+ if(e.kind==='pin'){const facts=el('dl',undefined,'event-focus');for(const [key,label] of [['goal','Desired outcome'],['next_test','Next useful test'],['commitment','Commitment']])if(e.pin[key]){const row=el('div');row.append(el('dt',label),el('dd',e.pin[key]));facts.append(row);}if(e.pin.commitment_date){const row=el('div');row.append(el('dt','Stated date'),el('dd',dateOnly(e.pin.commitment_date)));facts.append(row);}article.append(facts);if(canEdit()&&!e.pin.shared)article.append(el('p','Instructor only','fine'));}
+ const sources=el('nav',undefined,'activity-sources');const source=link(e.url,e.kind==='pin'?'Source':'View in Slack');if(source)sources.append(source);const github=link(e.github_url,'GitHub');if(github)sources.append(github);if(e.source_at)sources.append(el('span','Source date '+dateTime(e.source_at),'fine'));article.append(sources);item.append(article);return item;
 }
-
-function render() {
-  if (!snapshot) return;
-  // Preserve expanded source sections when saved records refresh.
-  const opened = new Set([...$('projects').querySelectorAll('details[open]')].map(node => node.dataset.key));
-  const query = $('search').value.trim().toLowerCase(); const filter = $('filter').value;
-  const projects = snapshot.projects.filter(p => (!query || (p.name + ' ' + p.owners.map(s => s.name).join(' ')).toLowerCase().includes(query)) && (filter === 'all' || (filter === 'missing' && (!p.pin.goal || !p.pin.live_url)) || (filter === 'review' && hasGap(p))));
-  $('projects').replaceChildren(); $('result-count').textContent = `${projects.length} of ${snapshot.projects.length} projects`;
-  if (!projects.length) $('projects').append(el('p', snapshot.projects.length ? 'No projects match this view.' : 'No configured projects yet.', 'missing'));
-  for (const project of projects) {
-    const card = el('article', undefined, 'project-card'); card.append(el('h2', project.name), members(project.owners));
-    const links = el('div', undefined, 'project-links');
-    for (const [url, title, cls] of [[project.pin.live_url, 'Open product', 'product-link'], [project.repository_url, 'GitHub'], [project.issues_url, 'Issues'], [project.channel_url, 'Slack']]) { const a = link(url, title, cls); if (a) links.append(a); }
-    card.append(links);
-    for (const [label, text] of [['Desired outcome', project.pin.goal], ['Next useful test', project.pin.next_test], ['Commitment', project.pin.commitment]]) { if (text) card.append(el('h3', label), el('p', text, 'pin-text')); } if (!project.pin.goal && !project.pin.next_test && !project.pin.commitment) card.append(el('p', 'Goal and next test not yet pinned.', 'missing'));
-    if (project.pin.commitment_date) card.append(el('p', 'Stated date: ' + dateOnly(project.pin.commitment_date), 'fine'));
-    const source = el('div', undefined, 'provenance');
-    const sourceLabel = project.pin.source_kind === 'student_statement' ? 'Student statement' : 'Instructor note';
-    const sourceLink = link(project.pin.source_url, sourceLabel);
-    if (sourceLink) source.append(sourceLink);
-    if (canEdit()) { const edit = el('button', 'Edit pin', 'secondary edit-pin'); edit.addEventListener('click', () => editPin(project)); source.append(edit); } card.append(source);
-    if (project.pin.source_url) card.append(el('p', 'Source: ' + dateTime(project.pin.source_at) + ' · saved ' + dateTime(project.pin_updated_at), 'fine'));
-    if (project.pin_stale) card.append(el('p', 'Pin source is more than a week old. Revisit it with the owner.', 'notice'));
-    const git = el('details'); git.dataset.key = project.id + '/git'; git.open = opened.has(git.dataset.key);
-    const notifications = project.github_notifications?.items || [];
-    const gitState = notifications.length && !project.evidence?.complete ? 'Slack feed' : !project.collection_enabled ? 'Disabled' : !project.evidence ? 'Not collected' : !project.evidence.complete ? 'Incomplete' : project.evidence_stale ? 'Stale' : 'Current';
-    git.append(el('summary', 'GitHub evidence · ' + gitState));
-    git.append(el('p', 'Last collection attempt: ' + dateTime(project.evidence?.collected_at), 'fine'));
-    if (!project.collection_enabled) git.append(el('p', 'GitHub collection is disabled.', 'notice'));
-    if (project.evidence_stale) git.append(el('p', project.evidence ? 'Saved evidence is more than 48 hours old.' : 'No repository evidence collected yet.', 'notice'));
-    for (const warning of project.evidence?.warnings || []) git.append(el('p', warning, 'notice'));
-    const items = [...(project.evidence?.items || []), ...notifications].sort((a,b) => (b.at || '').localeCompare(a.at || ''));
-    if (items.length) { const list = el('ul', undefined, 'evidence-list'); for (const item of items.slice(0, 8)) { const li = el('li'); li.append(link(item.url, item.text.split('\n')[0] || item.type) || el('span', item.text || item.type)); li.append(el('span', [item.type.replace('_', ' '), item.state, item.author, item.at ? dateTime(item.at) : null].filter(Boolean).join(' · '), 'fine')); list.append(li); } git.append(list); }
-    else git.append(el('p', project.evidence?.complete ? 'No items in the collection window.' : 'No evidence available from this collection.', 'fine'));
-    if (project.evidence) git.append(el('p', 'Rolling window since ' + dateTime(project.evidence.since) + '. Showing up to eight recent items.', 'fine'));
-    card.append(git);
-    const updates = el('details'); updates.dataset.key = project.id + '/slack'; updates.open = opened.has(updates.dataset.key); updates.append(el('summary', 'Slack updates')); if (project.slack_collection?.warning) updates.append(el('p', project.slack_collection.warning, 'notice'));
-    for (const entry of project.updates) { const box = el('div', undefined, 'update'); const owner = project.owners.find(s => s.id === entry.student_id); box.append(el('strong', owner?.name || entry.student_id), el('p', entry.text), el('span', 'Captured ' + dateTime(entry.source.at || entry.created_at) + ' ', 'fine')); const a = link(entry.source.url, 'Source'); if (a) box.append(a); updates.append(box); }
-    if (!project.updates.length) updates.append(el('p', 'No owner updates collected. Open Slack for the full conversation.', 'fine'));
-    card.append(updates); $('projects').append(card);
-  }
+function renderEvents(state){const list=el('ol',undefined,'activity-list');for(const e of state.events)list.append(eventNode(e));$('activity').replaceChildren(state.events.length?list:el('p','No project updates have been captured yet. The team channel has the full conversation.','missing'));if(state.next_cursor){const more=el('button','Earlier updates','secondary');more.addEventListener('click',()=>{more.disabled=true;loadEvents(true);});$('activity').append(more);}}
+async function loadEvents(older=false){const id=selected,version=generation,state=caches.get(id);try{const data=await api('projects/'+encodeURIComponent(id)+'/timeline'+(older?'?cursor='+encodeURIComponent(state.next_cursor):''));if(id!==selected||version!==generation)return;const next={stamp:detailStamp,events:older?[...state.events,...data.events]:data.events,next_cursor:data.next_cursor};caches.set(id,next);renderEvents(next);if(older){const n=$('activity').querySelectorAll('.activity-event')[state.events.length];if(n){n.tabIndex=-1;n.focus({preventScroll:true});}}}catch(e){if(id!==selected||version!==generation)return;if(!older)$('activity').replaceChildren();else $('activity').querySelector('button')?.remove();const retry=el('button','Retry','secondary');retry.addEventListener('click',()=>{retry.disabled=true;loadEvents(older);});const error=el('p',e.message,'error');error.setAttribute('role','alert');$('activity').append(error,retry);}}
+function syncView(focus=false){if(!snapshot)return;const id=new URLSearchParams(location.hash.slice(1)).get('project'),p=snapshot.projects.find(p=>p.id===id),previous=selected;$('overview').hidden=!!id;$('project-detail').hidden=!id;$('result-count').hidden=!!id;$('course-label').hidden=!!id;$('board-title').textContent=p?p.name:'Projects';document.title=(p?p.name:'Projects')+' · ENTR 5000';
+ if(!id){selected=null;detailStamp=null;generation++;if(focus&&previous){const card=[...document.querySelectorAll('[data-project]')].find(n=>n.dataset.project===returnProject);scrollTo(0,returnScroll);(card||$('board-title')).focus({preventScroll:true});}return;}
+ if(!p){selected=null;generation++;$('project-current').replaceChildren();$('activity').replaceChildren(el('p','This project is not on the course roster.'));return;}
+ const stamp=p.activity_revision+'|'+p.revision;if(selected!==id||detailStamp!==stamp){selected=id;detailStamp=stamp;generation++;renderCurrent(p);const cached=caches.get(id);if(cached?.stamp===stamp)renderEvents(cached);else{$('activity').replaceChildren(el('p','Loading updates…','fine'));loadEvents();}}if(focus){scrollTo(0,0);$('board-title').focus({preventScroll:true});}
 }
-function editPin(project) {
-  editing = project; $('shared-pin').checked = !!project.pin.shared; $('editor-title').textContent = project.name; $('editor-error').textContent = '';
-  for (const [field, key] of [['goal', 'goal'], ['next-test', 'next_test'], ['commitment', 'commitment'], ['commitment-date', 'commitment_date'], ['live-url', 'live_url'], ['source-url', 'source_url'], ['source-kind', 'source_kind']]) $(field).value = project.pin[key] || '';
-  if (project.pin.source_at) { const date = new Date(project.pin.source_at); $('source-at').value = new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 19); } else $('source-at').value = '';
-  $('editor').showModal(); $('goal').focus();
-}
-async function loadSession() {
-  const data = await api('session'); user = data.user;
-  $('slack-login').hidden = !data.slack_enabled;
-  $('login-help').textContent = data.slack_enabled ? 'Use your course Slack account.' : 'Slack sign-in is being connected.';
-  $('collect').hidden = !canEdit();
-  const adminLink = document.querySelector('.site-header nav a'); if (adminLink) adminLink.hidden = !canEdit();
-  if (user) await refresh();
-}
-$('login-form').addEventListener('submit', event => { event.preventDefault(); const secret = $('token').value; $('token').value = ''; action(event.submitter, async () => {
-  const result = await fetch(base + '/api/admin-session', {method:'POST', headers:{Authorization:'Bearer ' + secret}});
-  if (!result.ok) throw new Error('Instructor authentication failed.');
-  await loadSession();
-}); });
-$('refresh').addEventListener('click', event => action(event.currentTarget, () => refresh()));
-$('collect').addEventListener('click', event => action(event.currentTarget, async () => { say('Collecting the configured repositories…'); const result = await api('collect', 'POST'); await refresh(true); say(result.status === 'disabled' ? 'Enable GitHub collection in the saved course configuration first.' : 'Collection finished. ' + result.warnings.join(' ')); }));
-$('logout').addEventListener('click', event => action(event.currentTarget, async () => { await api('logout', 'POST'); closeSession(); await loadSession(); say('Signed out.'); }));
-$('search').addEventListener('input', render); $('filter').addEventListener('change', render);
-$('cancel').addEventListener('click', () => $('editor').close());
-$('editor').addEventListener('close', () => { editing = null; $('pin-form').reset(); });
-$('pin-form').addEventListener('submit', async event => {
-  event.preventDefault(); if (!editing) return; $('save').disabled = true; $('editor-error').textContent = '';
-  try {
-    const pin = {shared: $('shared-pin').checked, goal: $('goal').value, next_test: $('next-test').value, commitment: $('commitment').value, commitment_date: $('commitment-date').value || null, live_url: $('live-url').value, source_url: $('source-url').value, source_kind: $('source-kind').value, source_at: $('source-at').value ? new Date($('source-at').value).toISOString() : null};
-    await api('projects/' + encodeURIComponent(editing.id), 'PUT', {pin, expected_revision: editing.revision}); $('editor').close(); editing = null; await refresh(true); say('Project pin saved.');
-  } catch (error) { $('editor-error').textContent = error.message; } finally { $('save').disabled = false; }
-});
-setInterval(() => { if (user && !document.hidden && !editing) refresh(true).catch(() => { $('sync').textContent = 'Board refresh failed · saved view retained'; say('Could not refresh. The board may be out of date.', true); }); }, 30000);
-document.addEventListener('visibilitychange', () => { if (user && !document.hidden && !editing) refresh(true).catch(error => say(error.message, true)); });
-
-loadSession().catch(error => say(error.message, true));
+async function refresh(quiet=false){if(loading||editing)return;loading=true;try{const session=user,data=await api('board');if(user!==session||!user)return;const changed=JSON.stringify(snapshot?.projects)!==JSON.stringify(data.projects);snapshot=data;$('login').hidden=true;$('workspace').hidden=false;$('course-label').textContent='';$('sync').textContent='Board checked '+dateTime(snapshot.generated_at);$('setup').hidden=!!snapshot.course;$('setup').textContent=snapshot.course?'':'Import the verified roster to populate this board.';$('activity-window').textContent=`The page checks saved records every 30 seconds. Slack events arrive as they are posted, with a history refresh about every ten minutes. The feed covers up to ${snapshot.retention_days||90} days and 200 GitHub notifications per project. Read limits and failures appear in project details.`;if(changed)render();syncView();if(!quiet)say('');}finally{loading=false;}}
+function editPin(p){editing=p;$('shared-pin').checked=!!p.pin.shared;$('editor-title').textContent=p.name;$('editor-error').textContent='';for(const [field,key] of [['goal','goal'],['next-test','next_test'],['commitment','commitment'],['commitment-date','commitment_date'],['live-url','live_url'],['source-url','source_url'],['source-kind','source_kind']])$(field).value=p.pin[key]||'';if(p.pin.source_at){const d=new Date(p.pin.source_at);$('source-at').value=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,19);}else $('source-at').value='';$('editor').showModal();$('goal').focus();}
+async function loadSession(){const data=await api('session');user=data.user;$('slack-login').hidden=!data.slack_enabled;$('login-help').textContent=data.slack_enabled?'Use your course Slack account.':'Slack sign-in is being connected.';$('collect').hidden=!canEdit();const admin=document.querySelector('[data-instructor-link]');if(admin)admin.hidden=!canEdit();if(user)await refresh();}
+$('login-form').addEventListener('submit',event=>{event.preventDefault();const secret=$('token').value;$('token').value='';action(event.submitter,async()=>{const r=await fetch(base+'/api/admin-session',{method:'POST',headers:{Authorization:'Bearer '+secret}});if(!r.ok)throw new Error('Instructor authentication failed.');await loadSession();});});
+$('refresh').addEventListener('click',e=>action(e.currentTarget,()=>refresh()));$('collect').addEventListener('click',e=>action(e.currentTarget,async()=>{say('Syncing the project Slack channels…');const result=await api('collect-slack','POST');await refresh(true);say(result.status==='busy'?'A Slack sync is already running. Refresh shortly.':result.warnings.length?'Slack sync finished. '+result.warnings.join(' '):'Slack activity is up to date.');}));
+$('logout').addEventListener('click',e=>action(e.currentTarget,async()=>{await api('logout','POST');closeSession();await loadSession();say('Signed out.');}));$('search').addEventListener('input',render);$('filter').addEventListener('change',render);window.addEventListener('hashchange',()=>{say('');syncView(true);});narrow.addEventListener('change',()=>{const d=$('project-current').querySelector('details');if(d)d.open=!narrow.matches;});
+$('cancel').addEventListener('click',()=>$('editor').close());$('editor').addEventListener('close',()=>{editing=null;$('pin-form').reset();});
+$('pin-form').addEventListener('submit',async event=>{event.preventDefault();if(!editing)return;$('save').disabled=true;$('editor-error').textContent='';try{const pin={shared:$('shared-pin').checked,goal:$('goal').value,next_test:$('next-test').value,commitment:$('commitment').value,commitment_date:$('commitment-date').value||null,live_url:$('live-url').value,source_url:$('source-url').value,source_kind:$('source-kind').value,source_at:$('source-at').value?new Date($('source-at').value).toISOString():null};await api('projects/'+encodeURIComponent(editing.id),'PUT',{pin,expected_revision:editing.revision});$('editor').close();editing=null;await refresh(true);$('project-current').querySelector('button')?.focus({preventScroll:true});say('Project pin saved.');}catch(e){$('editor-error').textContent=e.message;}finally{$('save').disabled=false;}});
+setInterval(()=>{if(user&&!document.hidden&&!editing&&!document.activeElement.closest('#projects,#activity'))refresh(true).catch(e=>say(e.message,true));},30000);document.addEventListener('visibilitychange',()=>{if(user&&!document.hidden&&!editing)refresh(true).catch(e=>say(e.message,true));});loadSession().catch(e=>say(e.message,true));
