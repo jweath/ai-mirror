@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -152,6 +152,29 @@ class Store:
                        (revision, payload, reporter, at, group.id))
         return self.get(group)
 
+    def timeline(self, group, before=None, limit=20):
+        self.get(group)
+        # Include one older snapshot to compute changes at the page boundary.
+        with self.connect() as db:
+            rows = [dict(row) for row in db.execute("""
+                SELECT revision, progress, reporter, updated FROM (
+                    SELECT revision, progress, reporter, updated FROM groups WHERE id=?
+                    UNION ALL
+                    SELECT revision, progress, reporter, updated FROM history WHERE group_id=?
+                ) WHERE (? IS NULL OR revision < ?) ORDER BY revision DESC LIMIT ?
+            """, (group.id, group.id, before, before, limit + 1))]
+        defaults = Progress().model_dump(mode="json")
+        updates = []
+        for index, row in enumerate(rows[:limit]):
+            progress = Progress.model_validate_json(row["progress"]).model_dump(mode="json")
+            previous = (Progress.model_validate_json(rows[index + 1]["progress"]).model_dump(mode="json")
+                        if index + 1 < len(rows) else defaults)
+            updates.append({"revision": row["revision"], "updated": row["updated"],
+                            "reporter": row["reporter"], "progress": progress,
+                            "changes": [{"field": field, "before": previous[field], "after": value}
+                                        for field, value in progress.items() if value != previous[field]]})
+        return {"updates": updates, "next_before": rows[limit - 1]["revision"] if len(rows) > limit else None}
+
 
 def create_progress(settings, directory, shared_session, logout, slack_enabled, mirror=None):
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
@@ -223,6 +246,13 @@ def create_progress(settings, directory, shared_session, logout, slack_enabled, 
         with store.connect() as db:
             rows = db.execute("SELECT * FROM history WHERE group_id=? ORDER BY revision DESC LIMIT 30", (group_id,))
             return {"updates": [view(group, dict(row), user) for row in rows]}
+
+    @app.get("/api/groups/{group_id}/timeline")
+    def timeline(group_id: str, before: int | None = Query(default=None, ge=1), user=Depends(session)):
+        group = next((g for g in directory.roster().groups if g.id == group_id), None)
+        if not group or group.section not in user["sections"]:
+            raise HTTPException(404, "Group not found")
+        return store.timeline(group, before)
 
     @app.get("/{section}/")
     def home(section: str):

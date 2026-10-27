@@ -156,6 +156,72 @@ def test_group_edits_have_csrf_ownership_revision_history_and_no_grading(combine
     assert client.get(WORKSPACE + '/api/home').status_code == 401
 
 
+def test_project_timeline_is_section_scoped_and_includes_current_changes(combined, store, course):
+    client, _, _, _, _, _ = combined
+    endpoint = PROGRESS + '/api/groups/1135-a/timeline'
+    assert client.get(endpoint).status_code == 401
+    sign_in(client, store, 'U5500ALEX')
+    initial = client.get(endpoint).json()
+    assert [u['revision'] for u in initial['updates']] == [0]
+    assert initial['updates'][0]['changes'] == []
+    assert initial['next_before'] is None
+    for revision, progress in enumerate([
+        {'entrepreneur': 'Morgan', 'interview': 'scheduled', 'scheduled_date': '2026-10-20'},
+        {'entrepreneur': 'Morgan', 'interview': 'completed', 'completed_date': '2026-10-20',
+         'source_url': 'https://example.org/interview', 'verified': True},
+    ]):
+        if progress.get('verified'):
+            sign_in(client, store, course.instructor_slack_ids[0])
+        assert client.put(PROGRESS + '/api/groups/1135-a', headers=HEADERS,
+                          json={'revision': revision, 'progress': progress}).status_code == 200
+    sign_in(client, store, 'UBLAIR')  # Same-section peers may view, but cannot edit this group.
+    updates = client.get(endpoint).json()['updates']
+    assert [u['revision'] for u in updates] == [2, 1, 0]
+    assert updates[0]['progress']['verified'] is True
+    changes = {c['field']: c for c in updates[0]['changes']}
+    assert changes['interview'] == {'field': 'interview', 'before': 'scheduled', 'after': 'completed'}
+    assert changes['scheduled_date']['after'] is None  # Removed values remain visible in the timeline.
+    assert 'entrepreneur' not in changes  # An unchanged field is not presented as a new update.
+    assert client.get(PROGRESS + '/api/groups/255-a/timeline').status_code == 404
+    assert client.get(PROGRESS + '/api/groups/not-a-group/timeline').status_code == 404
+    assert client.get(endpoint + '?before=0').status_code == 422
+    sign_in(client, store, 'UCASEY')
+    assert client.get(endpoint + '?before=2').status_code == 404
+    assert not store.outbox()
+
+
+def test_project_timeline_paginates_without_gaps_or_losing_boundary_changes(combined, store):
+    client, app, _, _, _, _ = combined
+    progress_app = next(r.app for r in app.routes if getattr(r, 'path', None) == '/progress')
+    progress_store = progress_app.state.store
+    sign_in(client, store, 'U5500ALEX')
+    for revision in range(43):
+        response = client.put(PROGRESS + '/api/groups/1135-a', headers=HEADERS,
+                              json={'revision': revision, 'progress': {'next_step': f'Step {revision + 1}'}})
+        assert response.status_code == 200
+    # Equal save times must not cause missing or duplicate events.
+    with progress_store.connect() as db:
+        db.execute("UPDATE groups SET updated='2026-10-27T14:00:00+00:00'")
+        db.execute("UPDATE history SET updated='2026-10-27T14:00:00+00:00'")
+    before, seen, pages = None, [], []
+    while True:
+        page = client.get(PROGRESS + '/api/groups/1135-a/timeline' +
+                          (f'?before={before}' if before is not None else '')).json()
+        pages.append(page)
+        seen.extend(u['revision'] for u in page['updates'])
+        before = page['next_before']
+        if before is None:
+            break
+    assert [len(p['updates']) for p in pages] == [20, 20, 4]
+    assert seen == list(range(43, -1, -1))
+    assert pages[0]['updates'][-1]['changes'] == [
+        {'field': 'next_step', 'before': 'Step 23', 'after': 'Step 24'}]
+    assert pages[1]['updates'][0]['changes'] == [
+        {'field': 'next_step', 'before': 'Step 22', 'after': 'Step 23'}]
+    assert pages[-1]['updates'][-1]['revision'] == 0
+    assert not store.outbox()
+
+
 def test_instructor_projection_separates_missing_evidence_and_group_reports(combined, store, course):
     client, _, _, _, _, _ = combined
     store.add_entry('private-muddy', course.students[0].id, course.sprint, 'muddiest_point', 'PRIVATE_MUDDY', {}, True)
