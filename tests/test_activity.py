@@ -149,6 +149,34 @@ def test_thread_recovery_uses_existing_scope_caches_quiet_threads_and_preserves_
     assert not store.get('last_slack_collection')  # A scoped sync cannot claim all projects were read.
 
 
+def test_thread_backfill_advances_past_the_per_pass_limit(store, course):
+    project = slack_course(store, course)
+    now = datetime.now(timezone.utc)
+    parents = [{'ts': str((now - timedelta(hours=n + 1)).timestamp()),
+                'reply_count': 1, 'latest_reply': str(now.timestamp())} for n in range(26)]
+
+    class Reader:
+        def __init__(self):
+            self.read_threads = []
+
+        def call(self, method, payload):
+            if method == 'auth.test':
+                return {'team_id': course.workspace_id}
+            if method == 'conversations.history':
+                return {'messages': parents}
+            assert method == 'conversations.replies'
+            self.read_threads.append(payload['ts'])
+            return {'messages': []}
+
+    reader = Reader()
+    collect_slack(store, reader, now, project_ids={project.id})
+    assert len(reader.read_threads) == 25
+    assert not store.get(f'slack_collection/{project.id}')['complete']
+    collect_slack(store, reader, now, project_ids={project.id})
+    assert len(reader.read_threads) == len(set(reader.read_threads)) == 26
+    assert store.get(f'slack_collection/{project.id}')['complete']
+
+
 def test_thread_read_failure_is_visible_and_never_marks_full_coverage(store, course):
     project = slack_course(store, course)
     ts = str(datetime.now(timezone.utc).timestamp())

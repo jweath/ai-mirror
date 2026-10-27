@@ -167,12 +167,13 @@ def _collect_slack(store, slack, now=None, project_ids=None):
         # repeatedly. Signed events continue to handle edits and deletions.
         thread_key = f"slack_threads/{course.sprint}/{project.id}"
         checked_threads = store.get(thread_key, {})
-        if len(parents) > 25:
+        pending_threads = [parent for parent in parents
+                           if checked_threads.get(parent["ts"]) !=
+                           [parent.get("reply_count"), parent.get("latest_reply")]]
+        if len(pending_threads) > 25:
             warning = warning or "Stopped at 25 threads; older thread history is incomplete"
-        for parent in parents[:25]:
+        for parent in pending_threads[:25]:
             marker = [parent.get("reply_count"), parent.get("latest_reply")]
-            if checked_threads.get(parent["ts"]) == marker:
-                continue
             thread_cursor = None
             try:
                 for _ in range(2):
