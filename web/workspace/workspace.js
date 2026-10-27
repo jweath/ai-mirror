@@ -136,12 +136,30 @@ function table(headers,cls) { const wrap=el('div',undefined,'table-wrap'),t=el('
 function cell(row,label) { const td=el('td');if(label)td.dataset.label=label;row.append(td);return td; }
 function showProjects() {
  const [field,input]=searchControl('Find a project or group','project-search');input.value=searches.projects;const [wrap,body]=table(['Project / group','Next step','Blocker',''],'project-table');
+ const groups=el('div',undefined,'group-project-sections');
  const status=el('p',undefined,'empty');status.setAttribute('role','status');
- function render() { const query=input.value.toLowerCase().trim(),rows=overview.projects.filter(allowed).filter(p=>[p.name,p.next_step,p.blocker].join(' ').toLowerCase().includes(query));body.replaceChildren();
-  for(const project of rows) { const row=el('tr');const name=cell(row);name.append(el('strong',project.name),members(project.members),el('p',`ENTR ${project.course} · ${project.section==='115'?'1:15':project.section==='1135'?'11:35':'2:55'}`,'muted small'));cell(row,'Next step').append(el('p',project.next_step || '—'));cell(row,'Blocker').append(el('p',project.blocker || '—'));const source=cell(row);source.append(link(project.overview_url,'Open overview'));if(project.source_url){source.append(el('br'),link(project.source_url,'Source','small'));}body.append(row); }
+ function render() { const query=input.value.toLowerCase().trim(),rows=overview.projects.filter(allowed).filter(p=>[p.name,p.next_step,p.blocker,p.progress?.entrepreneur,p.progress?.company,...p.members.map(m=>m.name)].join(' ').toLowerCase().includes(query));body.replaceChildren();groups.replaceChildren();
+  const aiProjects=rows.filter(p=>p.course==='5000');wrap.hidden=!aiProjects.length;
+  for(const project of aiProjects) { const row=el('tr');const name=cell(row);name.append(el('strong',project.name),members(project.members),el('p','ENTR 5000 · 1:15','muted small'));cell(row,'Next step').append(el('p',project.next_step || '—'));cell(row,'Blocker').append(el('p',project.blocker || '—'));const source=cell(row);source.append(link(project.overview_url,'Open overview'));if(project.source_url){source.append(el('br'),link(project.source_url,'Source','small'));}body.append(row); }
+  const labels={unknown:'—',outreach:'Outreach',scheduled:'Scheduled',completed:'Completed',planning:'Planning',drafting:'In progress',ready:'Ready',submitted:'Submitted'};
+  for(const section of ['1135','255']) {
+   const projects=rows.filter(p=>p.course==='5500' && p.section===section);if(!projects.length)continue;
+   const groupSection=el('section',undefined,'group-project-section'),time=section==='1135'?'11:35 a.m.':'2:55 p.m.',grid=el('div',undefined,'group-project-grid');groupSection.append(el('h2','ENTR 5500 · '+time));
+   for(const project of projects) {
+    const p=project.progress,card=link(project.overview_url,undefined,'group-project-card');card.setAttribute('aria-label',project.name+' project updates · '+time);
+    const heading=el('div',undefined,'group-card-heading'),arrow=el('span','→');arrow.setAttribute('aria-hidden','true');heading.append(el('h3',project.name),arrow);
+    const founder=el('div',undefined,'group-founder-block');founder.append(el('p',p.entrepreneur || p.company || 'Entrepreneur not recorded','group-founder'));
+    if(p.entrepreneur && p.company)founder.append(el('p',p.company,'muted small'));card.append(heading,founder);
+    card.append(members(project.members));const milestones=el('dl',undefined,'group-milestones');
+    for(const [key,label] of [['interview','Interview'],['paper','Paper'],['creative','Creative']]){const item=el('div');item.append(el('dt',label),el('dd',labels[p[key]]));milestones.append(item);}card.append(milestones);
+    if(project.next_step){const next=el('div',undefined,'group-next');next.append(el('span','Next step','muted small'),el('p',project.next_step));card.append(next);}
+    if(project.blocker)card.append(el('p','Blocker: '+project.blocker,'error small'));grid.append(card);
+   }
+   groupSection.append(grid);groups.append(groupSection);
+  }
   status.textContent=rows.length?`${rows.length} ${rows.length===1?'project or group':'projects and groups'}`:'No matching projects or groups.';
  }
- input.addEventListener('input',()=>{searches[view()]=input.value;render();});render();$('content').replaceChildren(field,wrap,status);
+ input.addEventListener('input',()=>{searches[view()]=input.value;render();});render();$('content').replaceChildren(field,groups,wrap,status);
 }
 function showPeople() {
  const [field,input]=searchControl('Find a student or group','people-search');input.value=searches.people;const [wrap,body]=table(['Student','Enrollment and group','Source'],'people-table');const status=el('p',undefined,'empty');status.setAttribute('role','status');

@@ -233,6 +233,11 @@ def test_instructor_projection_separates_missing_evidence_and_group_reports(comb
     assert next(c for c in data['courses'] if c['section'] == '1135')['students'] == 3
     assert any(a['id'] == 'ungrouped-UUNGROUPED' for a in data['alerts'])
     assert not any(c['course'] == '5500' for c in data['changes'])  # imports aren't new group reports
+    groups = [p for p in data['projects'] if p['course'] == '5500']
+    assert len(groups) == 3
+    morning = next(p for p in groups if p['section'] == '1135' and p['name'] == 'Morning A')
+    assert morning['overview_url'] == PROGRESS + '/1135/#group=1135-a'
+    assert morning['progress']['interview'] == 'unknown'
     assert 'PRIVATE_MUDDY' not in response.text
     assert data['participation']['connected'] is False
     assert not store.outbox()
