@@ -194,10 +194,11 @@ def create_workspace(settings, mirror, directory, progress, shared_session, logo
                         saved = progress.get(group)
                         state = Progress.model_validate_json(saved["progress"])
                         states.append(state)
-                        href = f"/entr/5500/2026/fall/{section}/"
+                        href = f"/entr/5500/2026/fall/{section}/#group={group.id}"
                         projects.append({"course": "5500", "section": section, "name": group.name,
                                          "next_step": state.next_step, "blocker": state.blocker,
                                          "href": href, "overview_url": href,
+                                         "progress": state.model_dump(mode="json"),
                                          "source_url": state.source_url, "source_at": state.source_date,
                                          "members":people_with_photos(mirror, group.members)})
                         if saved["revision"]:
