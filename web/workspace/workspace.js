@@ -4,7 +4,7 @@ const base = document.body.dataset.base, mode = document.body.dataset.mode;
 let user, overview, people, homeData, learningData, githubData, refreshing = false;
 let prepSnapshot='current';
 const searches={projects:'',people:''};
-const titles = {overview:'Instructor home', projects:'Projects', people:'People', prep:'Class prep', checkins:'Check-ins', connections:'Connections', setup:'GitHub setup'};
+const titles = {overview:'Instructor home', projects:'Projects', people:'People', prep:'Class prep', checkins:'Check-ins', connections:'Connections', setup:'Project feeds'};
 function el(tag, text, cls) { const node=document.createElement(tag); if(text!==undefined)node.textContent=text; if(cls)node.className=cls; return node; }
 function link(href,text,cls) { const node=el('a',text,cls); try { const url=new URL(href,location.origin); if(url.protocol!=='https:' && !(url.origin===location.origin && url.pathname.startsWith('/entr/'))) return el('span',text); if(url.origin===location.origin && !url.pathname.startsWith('/entr/'))return el('span',text); node.href=url.href; } catch { return el('span',text); } return node; }
 function say(text,error=false) { $('message').textContent=text; $('message').classList.toggle('error',error); }
@@ -97,7 +97,7 @@ function courseCard(course, personal=false) {
  } else if(course.my_work) {
   const work=el('div',undefined,'work'); work.append(el('h3',course.my_work.name));
   if(course.my_work.next_step){work.append(el('p',course.my_work.next_step));if(course.my_work.source_at){const source=el('p',undefined,'muted small');source.append(course.my_work.source_url?link(course.my_work.source_url,'Reported '+date(course.my_work.source_at)):el('span','Reported '+date(course.my_work.source_at)));work.append(source);}}
-  const links=el('div',undefined,'course-links'); links.append(link(course.my_work.href,'Team Slack'));if(course.course==='5000')links.append(link(base+'/#setup','GitHub setup'));
+  const links=el('div',undefined,'course-links'); links.append(link(course.my_work.href,'Team Slack'));if(course.course==='5000')links.append(link(base+'/#setup','Project feeds'));
   if(course.my_work.document_url)links.append(link(course.my_work.document_url,course.course==='5000'?'Repository':'Group document'));
   work.append(links);card.append(work);
  }
@@ -135,23 +135,28 @@ function searchControl(label,id) { const field=el('label',label,'search-label'),
 function table(headers,cls) { const wrap=el('div',undefined,'table-wrap'),t=el('table',undefined,cls),head=el('thead'),row=el('tr'),body=el('tbody');for(const label of headers){const cell=el('th',label);cell.scope='col';row.append(cell);}head.append(row);t.append(head,body);wrap.append(t);return [wrap,body]; }
 function cell(row,label) { const td=el('td');if(label)td.dataset.label=label;row.append(td);return td; }
 function showProjects() {
- const [field,input]=searchControl('Find a project or group','project-search');input.value=searches.projects;const [wrap,body]=table(['Project / group','Next step','Blocker',''],'project-table');
- const groups=el('div',undefined,'group-project-sections');
- const status=el('p',undefined,'empty');status.setAttribute('role','status');
- function render() { const query=input.value.toLowerCase().trim(),rows=overview.projects.filter(allowed).filter(p=>[p.name,p.next_step,p.blocker,p.progress?.entrepreneur,p.progress?.company,...p.members.map(m=>m.name)].join(' ').toLowerCase().includes(query));body.replaceChildren();groups.replaceChildren();
-  const aiProjects=rows.filter(p=>p.course==='5000');wrap.hidden=!aiProjects.length;
-  for(const project of aiProjects) { const row=el('tr');const name=cell(row);name.append(el('strong',project.name),members(project.members),el('p','ENTR 5000 · 1:15','muted small'));cell(row,'Next step').append(el('p',project.next_step || '—'));cell(row,'Blocker').append(el('p',project.blocker || '—'));const source=cell(row);source.append(link(project.overview_url,'Open overview'));if(project.source_url){source.append(el('br'),link(project.source_url,'Source','small'));}body.append(row); }
-  const labels={unknown:'—',outreach:'Outreach',scheduled:'Scheduled',completed:'Completed',planning:'Planning',drafting:'In progress',ready:'Ready',submitted:'Submitted'};
-  for(const section of ['1135','255']) {
-   const projects=rows.filter(p=>p.course==='5500' && p.section===section);if(!projects.length)continue;
-   const groupSection=el('section',undefined,'group-project-section'),time=section==='1135'?'11:35 a.m.':'2:55 p.m.',grid=el('div',undefined,'group-project-grid');groupSection.append(el('h2','ENTR 5500 · '+time));
+ const [field,input]=searchControl('Find a project or group','project-search');input.value=searches.projects;
+ const groups=el('div',undefined,'group-project-sections'),status=el('p',undefined,'empty');status.setAttribute('role','status');
+ const labels={unknown:'—',outreach:'Outreach',scheduled:'Scheduled',completed:'Completed',planning:'Planning',drafting:'In progress',ready:'Ready',submitted:'Submitted'};
+ function render() {
+  const query=input.value.toLowerCase().trim(),rows=overview.projects.filter(allowed).filter(p=>[p.name,p.next_step,p.blocker,p.pin?.goal,p.progress?.entrepreneur,p.progress?.company,...p.members.map(m=>m.name)].join(' ').toLowerCase().includes(query));groups.replaceChildren();
+  for(const [course,section,time] of [['5000','115','1:15 p.m.'],['5500','1135','11:35 a.m.'],['5500','255','2:55 p.m.']]) {
+   const projects=rows.filter(p=>p.course===course && p.section===section);if(!projects.length)continue;
+   const groupSection=el('section',undefined,'group-project-section'),grid=el('div',undefined,'group-project-grid');groupSection.append(el('h2','ENTR '+course+' · '+time));
    for(const project of projects) {
-    const p=project.progress,card=link(project.overview_url,undefined,'group-project-card');card.setAttribute('aria-label',project.name+' project updates · '+time);
-    const heading=el('div',undefined,'group-card-heading'),arrow=el('span','→');arrow.setAttribute('aria-hidden','true');heading.append(el('h3',project.name),arrow);
-    const founder=el('div',undefined,'group-founder-block');founder.append(el('p',p.entrepreneur || p.company || 'Entrepreneur not recorded','group-founder'));
-    if(p.entrepreneur && p.company)founder.append(el('p',p.company,'muted small'));card.append(heading,founder);
-    card.append(members(project.members));const milestones=el('dl',undefined,'group-milestones');
-    for(const [key,label] of [['interview','Interview'],['paper','Paper'],['creative','Creative']]){const item=el('div');item.append(el('dt',label),el('dd',labels[p[key]]));milestones.append(item);}card.append(milestones);
+    const card=link(project.overview_url,undefined,'group-project-card');card.setAttribute('aria-label',project.name+' project updates · '+time);
+    const heading=el('div',undefined,'group-card-heading'),arrow=el('span','→');arrow.setAttribute('aria-hidden','true');heading.append(el('h3',project.name),arrow);card.append(heading);
+    if(course==='5500') {
+     const p=project.progress,founder=el('div',undefined,'group-founder-block');founder.append(el('p',p.entrepreneur || p.company || 'Entrepreneur not recorded','group-founder'));
+     if(p.entrepreneur && p.company)founder.append(el('p',p.company,'muted small'));card.append(founder,members(project.members));
+     const milestones=el('dl',undefined,'group-milestones');for(const [key,label] of [['interview','Interview'],['paper','Paper'],['creative','Creative']]){const item=el('div');item.append(el('dt',label),el('dd',labels[p[key]]));milestones.append(item);}card.append(milestones);
+    } else {
+     card.classList.add('ai-project-card');card.append(members(project.members));
+     if(project.pin.goal)card.append(el('p',project.pin.goal,'group-goal'));
+     const recent=project.recent_activity?.[0];
+     if(!project.next_step && recent) {const latest=el('div',undefined,'group-next');latest.append(el('span',(recent.kind==='github'?'GitHub via Slack':recent.kind==='pin'?'Project pin':recent.author)+' · '+date(recent.at),'muted small'),el('p',recent.text || recent.title));card.append(latest);}
+     if(!project.next_step && !recent && !project.pin.goal)card.append(el('p','No project update captured yet.','muted small'));
+    }
     if(project.next_step){const next=el('div',undefined,'group-next');next.append(el('span','Next step','muted small'),el('p',project.next_step));card.append(next);}
     if(project.blocker)card.append(el('p','Blocker: '+project.blocker,'error small'));grid.append(card);
    }
@@ -159,7 +164,7 @@ function showProjects() {
   }
   status.textContent=rows.length?`${rows.length} ${rows.length===1?'project or group':'projects and groups'}`:'No matching projects or groups.';
  }
- input.addEventListener('input',()=>{searches[view()]=input.value;render();});render();$('content').replaceChildren(field,groups,wrap,status);
+ input.addEventListener('input',()=>{searches.projects=input.value;render();});render();$('content').replaceChildren(field,groups,status);
 }
 function showPeople() {
  const [field,input]=searchControl('Find a student or group','people-search');input.value=searches.people;const [wrap,body]=table(['Student','Enrollment and group','Source'],'people-table');const status=el('p',undefined,'empty');status.setAttribute('role','status');
@@ -172,13 +177,32 @@ function showPeople() {
 function showConnections() {
  const [wrap,body]=table(['Record','Current connection','Review'],'connection-table');
  const rows=[['Instructions and dates','Read from the published course brief.','Course homes','/entr/']];
- if(overview.courses.some(c=>c.course==='5000'))rows.push(['5000 project evidence',overview.courses.find(c=>c.course==='5000').metrics.map(m=>`${m.value} ${m.label.toLowerCase()}`).join(' · '),'Project overview','/entr/5000/2026/fall/']);
+ if(overview.courses.some(c=>c.course==='5000'))rows.push(['5000 project activity',overview.courses.find(c=>c.course==='5000').metrics.map(m=>`${m.value} ${m.label.toLowerCase()}`).join(' · '),'Project feeds','/entr/instructor/#setup']);
  if(overview.courses.some(c=>c.course==='5500'))rows.push(['5500 group progress','Source imports and group reports, with revision history.','Final project guide','/entr/5500/assignments/final-group-project/']);
  rows.push(['Participation',overview.learning_connected?'Prep and reflections connected here. Attendance review, corrections, and grade exports remain in instOS.':overview.participation.detail,'',''],['Name practice','The existing Face Book tool.','Open name practice','https://the-face-book-production.up.railway.app'],['Quizzes and grades','eLC remains the official record.','Open eLC','https://elc.uga.edu/'],['Recordings and summaries','Originals and transcription remain local. Reviewed summaries are published on the course site.','Class notes','/entr/'],['AI assistants','Use ChatGPT or Claude under each assignment’s policy. No additional journal or whole-chat capture.','Course workflows','/entr/general/tools-and-workflows/']);
  if(overview.notifications)rows.push(['AI Mirror prompts',`${overview.notifications.mirror_enabled?'Enabled':'Class messaging off'} · ${overview.notifications.scheduled} saved schedule moments · ${overview.notifications.pending} pending messages${overview.notifications.hold?' · delivery hold':''}`,'Schedule and review',overview.notifications.href]);
  for(const [name,state,label,href] of rows){const row=el('tr');cell(row).append(el('span',name,'connection-name'));cell(row).append(el('p',state));if(href)cell(row).append(link(href,label));else cell(row);body.append(row);} $('content').replaceChildren(wrap);
 }
+function showSlackFeeds() {
+ const data=githubData,content=el('div',undefined,'learning');
+ if(mode==='instructor')content.append(el('p',`${data.projects.filter(p=>p.history_complete && !p.stale).length} of ${data.projects.length} channels read · ${data.projects.filter(p=>p.github_posts).length} with GitHub posts`,'muted small'));
+ const intro=el('p');intro.append(document.createTextNode('Project activity comes from team Slack channels. '),link(data.guide_url,'GitHub notification setup'));content.append(intro);
+ for(const project of data.projects) {
+  const card=el('section',undefined,'prep-section');card.append(el('h2',project.project));
+  const state=project.warning || (project.stale?'Slack history needs a refresh':project.history_complete?'Slack channel read':'Slack history not collected yet');card.append(el('p',state,project.warning?'error':'feed-state'));
+  const links=el('nav',undefined,'feed-links');links.append(link(project.channel_url,'Team Slack'));if(project.repository)links.append(link('https://github.com/'+project.repository,project.repository));if(project.latest_source_url)links.append(link(project.latest_source_url,'Latest GitHub post'));card.append(links);
+  card.append(el('p',project.github_posts?`${project.github_posts} GitHub notifications captured · latest ${date(project.latest_github_at,true)} Eastern`:'No GitHub notifications captured in this project channel.','muted small'));
+  if(!project.github_posts) {
+   if(project.subscribe_command){card.append(el('p','The repository owner can check the existing subscription in the team channel with /github subscribe list. To enable issue and pull-request notifications:'),el('code',project.subscribe_command,'feed-command'));}
+   else card.append(el('p','A project repository link is still needed. Share it in the team channel so John can confirm it.'));
+  }
+  if(project.warning || project.stale) {const check=el('button','Refresh Slack activity','secondary');check.addEventListener('click',async()=>{check.disabled=true;try{await api('github/check/'+project.project_id,'POST');githubData=await api('github');showSlackFeeds();say('');}catch(e){say(e.message,true);check.disabled=false;}});card.append(check);}
+  if(project.checked_at)card.append(el('p','Checked '+date(project.checked_at,true)+' Eastern','muted small'));content.append(card);
+ }
+ $('content').replaceChildren(content);
+}
 function showSetup() {
+ if(githubData?.source==='slack'){showSlackFeeds();return;}
  const content=el('div',undefined,'learning');const data=githubData;if(!data){content.append(el('p','Loading GitHub connections…'));$('content').replaceChildren(content);return;}
  if(mode==='instructor')content.append(el('p',data.projects.length+' projects · '+data.projects.filter(p=>!p.repository).length+' repository links needed · '+data.projects.reduce((n,p)=>n+p.members.filter(m=>!m.github_login).length,0)+' usernames needed','muted small'));
  const intro=el('section',undefined,'prep-section');intro.append(el('p','The repository owner installs the course app on the project repository. Partners share one installation and keep separate journals.'));
@@ -199,7 +223,7 @@ function showSetup() {
 
 function render() {
  if(mode==='instructor' && !overview)return;
- if(mode!=='instructor'){if(view()==='setup' && githubData){$('title').textContent='GitHub setup';document.title='GitHub setup · ENTR';showSetup();}else showHome();return;}
+ if(mode!=='instructor'){if(view()==='setup' && githubData){$('title').textContent='Project feeds';document.title='Project feeds · ENTR';showSetup();}else showHome();return;}
  const current=view();$('course-filter').hidden=current==='setup';$('title').textContent=titles[current];document.title=titles[current]+' · ENTR';for(const item of document.querySelectorAll('[data-view]')){if(item.dataset.view===current)item.setAttribute('aria-current','page');else item.removeAttribute('aria-current');}
  if(current==='overview')showOverview();else if(current==='projects')showProjects();else if(current==='people')showPeople();else if(current==='prep')showPrep();else if(current==='checkins')showCheckins();else if(current==='setup')showSetup();else showConnections();
  $('footer').hidden=false;$('checked').textContent=['prep','checkins'].includes(current)?(learningData?.checked_at?'Posts checked '+date(learningData.checked_at,true)+' Eastern':'Waiting for the first source read.'):'Checked '+date(overview.checked_at,true)+' Eastern';

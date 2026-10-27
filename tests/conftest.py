@@ -17,7 +17,7 @@ def now():
 @pytest.fixture
 def course(now):
     data = json.loads(Path('config/course.example.json').read_text())
-    data.update(active=True, activated_at=(now - timedelta(hours=1)).isoformat())
+    data.update(active=True, activated_at=(now - timedelta(hours=1)).isoformat(), activity_source='direct')
     data['meetings'] = [{'id': 'today', 'at': now.isoformat(), 'kind': 'exit_ticket'}]
     return Course.model_validate(data)
 

@@ -150,7 +150,11 @@ def create_workspace(settings, mirror, directory, progress, shared_session, logo
             for project in result["projects"]:
                 item = {"course": "5000", "section": "115", "name": project["name"],
                         "next_step": project["pin"]["next_test"], "blocker": "",
-                        "href": project["channel_url"], "overview_url": "/entr/5000/2026/fall/",
+                        "href": project["channel_url"],
+                        "overview_url": "/entr/5000/2026/fall/#project=" + project["id"],
+                        "pin": project["pin"], "activity_source": project["activity_source"],
+                        "slack_status": project["slack_status"],
+                        "recent_activity": project["recent_activity"],
                         "source_url": project["pin"]["source_url"],
                         "source_at": project["pin"].get("source_at"),
                         "members":project["owners"]}
@@ -170,13 +174,20 @@ def create_workspace(settings, mirror, directory, progress, shared_session, logo
                                         if evidence.get("text") else "Repository updated",
                                         "at": evidence["at"], "href": evidence["url"],
                                         "kind": "GitHub " + evidence.get("type", "change").replace("_", " ")})
+                for notice in project["github_notifications"].get("items", [])[:8]:
+                    changes.append({"course": "5000", "section": "115", "name": project["name"],
+                                    "text": notice["text"], "at": notice["at"], "href": notice["url"],
+                                    "kind": "GitHub via Slack"})
+            slack_mode = course_map.activity_source == "slack"
+            feeds = sum(bool(p["github_notifications"].get("items")) for p in result["projects"])
             courses.append({**offering("5000", "115"), "students": len(course_map.students),
                             "groups": len(result["projects"]),
                             "metrics": [{"label": "Slack channels connected", "value": sum(
                                 bool(p["slack_collection"] and p["slack_collection"].get("complete"))
                                 for p in result["projects"])},
-                                        {"label": "GitHub reads complete", "value": full}]})
-            if full < len(result["projects"]):
+                                        {"label": "Projects with GitHub posts" if slack_mode else "GitHub reads complete",
+                                         "value": feeds if slack_mode else full}]})
+            if not slack_mode and full < len(result["projects"]):
                 alerts.append({"id": "github-coverage", "course": "5000", "title": "Finish GitHub connections",
                                "detail": f"{full} of {len(result['projects'])} repositories have complete direct reads. "
                                          "Missing access does not establish inactivity.",

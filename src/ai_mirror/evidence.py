@@ -27,6 +27,8 @@ class GitHub:
 
     @classmethod
     def configured(cls, settings, course=None):
+        if course and course.activity_source == "slack":
+            return cls()
         config = credentials(settings) or {}
         return cls(settings.github_token if not config else "", app_id=str(config.get("id", "")),
                    private_key=config.get("pem", ""),
@@ -114,7 +116,7 @@ class GitHub:
 
 def collect_github(store, github, now=None, project_ids=None):
     course = store.course()
-    if not course or not course.github_enabled:
+    if not course or not course.github_enabled or course.activity_source == "slack":
         return {"status": "disabled", "warnings": []}
     now = now or datetime.now(timezone.utc)
     # A bounded rolling evidence window, disclosed in each snapshot, not a sprint total.

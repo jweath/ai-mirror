@@ -31,6 +31,9 @@ class Store:
             db.executescript("""
                 PRAGMA journal_mode=WAL;
                 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS pin_history (
+                    id TEXT PRIMARY KEY, sprint TEXT NOT NULL, project TEXT NOT NULL,
+                    value TEXT NOT NULL, created_at TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS entries (
                     id TEXT PRIMARY KEY, student_id TEXT NOT NULL, sprint TEXT NOT NULL,
                     kind TEXT NOT NULL, text TEXT NOT NULL, source TEXT NOT NULL,
@@ -189,6 +192,7 @@ class Store:
         with self.connect() as db:
             for table in ("entries", "digests"):
                 db.execute(f"DELETE FROM {table} WHERE created_at<?", (cutoff,))
+            db.execute("DELETE FROM pin_history WHERE created_at<?", (cutoff,))
             # Expire abandoned jobs instead of retaining old learning text indefinitely.
             db.execute("UPDATE outbox SET status='expired' WHERE created_at<? AND status IN ('pending','failed')",
                        (cutoff,))

@@ -40,7 +40,7 @@ class Slack:
             raise SlackError("missing_slack_token")
         try:
             headers = {"Authorization": f"Bearer {self.token}"}
-            if method in ("conversations.info", "conversations.members"):
+            if method in ("conversations.info", "conversations.members", "conversations.replies"):
                 # These metadata methods reject JSON POST parameters in Slack's
                 # live API even though history and chat methods accept them.
                 response = httpx.get(f"https://slack.com/api/{method}", params=payload,

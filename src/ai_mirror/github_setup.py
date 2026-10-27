@@ -100,6 +100,8 @@ def check_project(store, provider, project):
 
 def refresh_connections(store, settings, now):
     """Probe at most two connections; refresh evidence only for events or new access."""
+    if not store.course() or store.course().activity_source == 'slack':
+        return []
     if not credentials(settings):
         return []
     provider, refreshed, probed = AppProvider(settings), [], 0
@@ -134,6 +136,8 @@ def install_routes(app, settings, store, shared_session):
     def teacher(user=Depends(shared_session)):
         if not any(g['course'] == '5000' and g['role'] == 'instructor' for g in user['grants']):
             raise HTTPException(403, '5000 instructor access required')
+        if store.course().activity_source == 'slack':
+            raise HTTPException(410, 'Project activity now comes through Slack. The custom reader app is retired.')
         return user
 
     def projects(user):
@@ -148,6 +152,13 @@ def install_routes(app, settings, store, shared_session):
     @app.get('/api/github')
     def status(user=Depends(shared_session)):
         selected = projects(user)
+        if store.course().activity_source == 'slack':
+            from .activity import slack_status
+            course = store.course()
+            rows = [slack_status(store, course, project) for project in selected]
+            return {'source': 'slack', 'app': {'configured': False, 'retired': True},
+                    'projects': rows, 'can_register': False,
+                    'guide_url': '/entr/5000/resources/github-setup/'}
         try:
             info = provider.info()
         except GitHubSetupError as exc:
@@ -170,6 +181,14 @@ def install_routes(app, settings, store, shared_session):
         project = next((p for p in projects(user) if p.id == project_id), None)
         if not project:
             raise HTTPException(404, 'Project not found')
+        if store.course().activity_source == 'slack':
+            from .activity import slack_status
+            from .slack import Slack
+            from .slack_evidence import collect_slack
+            prior = slack_status(store, store.course(), project)
+            if not prior['checked_at'] or time.time()-datetime.fromisoformat(prior['checked_at']).timestamp() >= 60:
+                collect_slack(store, Slack(settings.slack_token), project_ids={project.id})
+            return slack_status(store, store.course(), project)
         if not project.repository:
             raise HTTPException(400, 'Send John the repository link in your project Slack channel.')
         prior = connection(store, project)
@@ -241,6 +260,8 @@ def install_routes(app, settings, store, shared_session):
 
     @app.post('/hooks/github')
     async def hook(request: Request):
+        if store.course() and store.course().activity_source == 'slack':
+            return {'status': 'ignored', 'reason': 'Custom GitHub reader retired; activity comes through Slack.'}
         config = credentials(settings)
         if not config or not config.get('webhook_secret'):
             raise HTTPException(503, 'GitHub connection is not ready')
