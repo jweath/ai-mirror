@@ -201,7 +201,8 @@ class Store:
                           WHERE created_at<? AND status IN ('sent','cancelled','expired')""", (cutoff,))
             for row in db.execute("""SELECT key,value FROM settings WHERE key LIKE 'evidence/%'
                                    OR key LIKE 'project_evidence/%' OR key LIKE 'pin/%'
-                                   OR key LIKE 'github_notifications/%'""").fetchall():
+                                   OR key LIKE 'github_notifications/%' OR key LIKE 'showcase/%'
+                                   OR key LIKE 'showcase_media/%'""").fetchall():
                 value = json.loads(row["value"])
                 if value.get("collected_at", value.get("updated_at", "")) < cutoff:
                     db.execute("DELETE FROM settings WHERE key=?", (row["key"],))

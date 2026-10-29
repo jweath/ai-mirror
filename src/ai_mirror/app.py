@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hmac
 import logging
+import re
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qs
@@ -25,6 +26,7 @@ from .learning import LearningClient
 from .pinup import PinConflict, PinUpdate, board, save_pin
 from .progress import create_progress
 from .rehearsal import capture_rehearsal, send_rehearsal
+from .showcase import MAX_IMAGE_BYTES, ProfileUpdate, save_profile, upload_image
 from .slack import Slack, SlackError, plain_slack, verify_signature
 from .slack_evidence import collect_slack, project_event
 from .store import Store, content_hash, now_iso
@@ -137,7 +139,10 @@ def create_app(settings=None, store=None, slack=None):
             size = int(request.headers.get("content-length", "0"))
         except ValueError:
             return JSONResponse({"detail": "Invalid body length"}, status_code=400)
-        if size > 1_000_000:
+        image_upload = request.method == 'POST' and re.fullmatch(
+            r'/(?:api/showcase|course/api|course/instructor/api/showcase)/projects/[^/]+/media',
+            request.url.path)
+        if size > (MAX_IMAGE_BYTES if image_upload else 1_000_000):
             return JSONResponse({"detail": "Body too large"}, status_code=413)
         response = await call_next(request)
         response.headers["Cache-Control"] = (
@@ -197,6 +202,22 @@ def create_app(settings=None, store=None, slack=None):
             raise HTTPException(404, "Project is not in the configured course") from None
         except PinConflict as exc:
             raise HTTPException(409, str(exc)) from None
+
+    @api.put("/api/showcase/projects/{project_id}", dependencies=[Depends(admin)])
+    def update_project_profile(project_id: str, update: ProfileUpdate):
+        try:
+            return save_profile(store, project_id, update)
+        except KeyError:
+            raise HTTPException(404, "Project is not in the configured course") from None
+        except PinConflict as exc:
+            raise HTTPException(409, str(exc)) from None
+
+    @api.post("/api/showcase/projects/{project_id}/media", dependencies=[Depends(admin)])
+    async def upload_project_media(project_id: str, request: Request):
+        try:
+            return await upload_image(request, store, project_id)
+        except KeyError:
+            raise HTTPException(404, "Project is not in the configured course") from None
 
     @app.get("/skill.md")
     def skill():

@@ -97,6 +97,7 @@ def save_pin(store, project_id, update, now=None):
 
 
 def board(store, now=None, shared=False):
+    from .showcase import saved_profile
     now = now or datetime.now(timezone.utc)
     course = store.course()
     if not course:
@@ -104,6 +105,7 @@ def board(store, now=None, shared=False):
     entries = store.entries(course.sprint)
     projects = []
     for project in course.projects:
+        profile = saved_profile(store, project.id, shared)
         owners = [s for s in course.students if s.project_id == project.id]
         ids = {s.id for s in owners}
         pin = store.get(f"pin/{course.sprint}/{project.id}")
@@ -121,6 +123,9 @@ def board(store, now=None, shared=False):
         activity = project_activity(store, project, shared, now, entries)
         projects.append({
             "id": project.id, "name": project.name,
+            "showcase": profile['profile'] if profile else None,
+            "showcase_updated_at": profile['updated_at'] if profile else None,
+            "showcase_revision": content_hash(profile) if profile else None,
             "repository_url": f"https://github.com/{project.repository}" if project.repository else None,
             "issues_url": f"https://github.com/{project.repository}/issues" if project.repository else None,
             "channel_url": f"https://app.slack.com/client/{course.workspace_id}/{project.channel_id}",

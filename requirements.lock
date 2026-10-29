@@ -23,3 +23,4 @@ itsdangerous==2.2.0
 joserfc==1.7.7
 pycparser==3.11
 python-multipart==0.0.32
+pillow==12.3.0
