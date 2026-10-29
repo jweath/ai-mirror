@@ -9,7 +9,7 @@ from urllib.parse import urlsplit
 
 from authlib.integrations.starlette_client import OAuth
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.sessions import SessionMiddleware
@@ -18,6 +18,7 @@ from .activity import timeline
 from .config import ROOT
 from .evidence import GitHub, collect_github
 from .pinup import PinConflict, PinUpdate, board, save_pin
+from .showcase import ProfileUpdate, image_bytes, save_profile, upload_image
 from .slack import Slack, SlackError
 from .slack_evidence import collect_slack
 
@@ -246,6 +247,31 @@ def create_dashboard(settings, store, instructor_router=None, admin_dependency=N
         if not project:
             raise HTTPException(404, "Project not found")
         return timeline(store, project, shared=user["role"] != "instructor", cursor=cursor)
+
+    @app.put("/api/projects/{project_id}/profile")
+    def update_profile(project_id: str, update: ProfileUpdate, user=Depends(instructor)):
+        try:
+            return save_profile(store, project_id, update)
+        except KeyError:
+            raise HTTPException(404, "Project is not in the configured course") from None
+        except PinConflict as exc:
+            raise HTTPException(409, str(exc)) from None
+
+    @app.post("/api/projects/{project_id}/media")
+    async def upload_media(project_id: str, request: Request, user=Depends(instructor)):
+        try:
+            return await upload_image(request, store, project_id)
+        except KeyError:
+            raise HTTPException(404, "Project is not in the configured course") from None
+
+    @app.get("/api/projects/{project_id}/media/{asset_id}")
+    def media(project_id: str, asset_id: str, user=Depends(session)):
+        try:
+            return Response(image_bytes(store, project_id, asset_id, user['role'] != 'instructor'),
+                            media_type='image/png', headers={'Cache-Control': 'no-store',
+                            'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'"})
+        except KeyError:
+            raise HTTPException(404, "Image not found") from None
 
     @app.post("/api/collect-slack")
     async def sync_slack(user=Depends(instructor)):
