@@ -14,10 +14,10 @@ from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.sessions import SessionMiddleware
 
-from .activity import timeline
 from .config import ROOT
 from .evidence import GitHub, collect_github
 from .pinup import PinConflict, PinUpdate, board, save_pin
+from .project_summaries import summary_timeline
 from .showcase import ProfileUpdate, image_bytes, save_profile, upload_image
 from .slack import Slack, SlackError
 from .slack_evidence import collect_slack
@@ -238,7 +238,10 @@ def create_dashboard(settings, store, instructor_router=None, admin_dependency=N
 
     @app.get("/api/board")
     def course_board(user=Depends(session)):
-        return board(store, shared=user["role"] != "instructor")
+        data = board(store, shared=user["role"] != "instructor")
+        for project in data['projects']:
+            project.pop('updates', None)  # Raw posts belong to the private reviewer packet, not this view.
+        return data
 
     @app.get("/api/projects/{project_id}/timeline")
     def project_timeline(project_id: str, cursor: str | None = Query(default=None, max_length=800),
@@ -246,7 +249,7 @@ def create_dashboard(settings, store, instructor_router=None, admin_dependency=N
         project = next((p for p in store.course().projects if p.id == project_id), None)
         if not project:
             raise HTTPException(404, "Project not found")
-        return timeline(store, project, shared=user["role"] != "instructor", cursor=cursor)
+        return summary_timeline(store, project, cursor=cursor)
 
     @app.put("/api/projects/{project_id}/profile")
     def update_profile(project_id: str, update: ProfileUpdate, user=Depends(instructor)):
