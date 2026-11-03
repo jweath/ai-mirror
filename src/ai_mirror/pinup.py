@@ -97,6 +97,7 @@ def save_pin(store, project_id, update, now=None):
 
 
 def board(store, now=None, shared=False):
+    from .project_summaries import summary_events
     from .showcase import saved_profile
     now = now or datetime.now(timezone.utc)
     course = store.course()
@@ -121,6 +122,7 @@ def board(store, now=None, shared=False):
         stale = not checked or datetime.fromisoformat(checked) < now - timedelta(hours=48)
         pin_age = (pin["pin"].get("source_at") or pin["updated_at"]) if pin else None
         activity = project_activity(store, project, shared, now, entries)
+        summaries = summary_events(store, project, now, entries)
         projects.append({
             "id": project.id, "name": project.name,
             "showcase": profile['profile'] if profile else None,
@@ -141,7 +143,7 @@ def board(store, now=None, shared=False):
             "github_notifications": store.get(f"github_notifications/{course.sprint}/{project.id}", {}),
             "activity_source": course.activity_source,
             "slack_status": slack_status(store, course, project, now),
-            "recent_activity": activity[:1], "activity_revision": content_hash(activity),
+            "recent_activity": summaries[:1], "activity_revision": content_hash([activity, summaries]),
         })
         projects[-1]["github_notifications"] = notifications(store, course, project, now)
     return {"course": course.name, "sprint": course.sprint, "projects": projects,

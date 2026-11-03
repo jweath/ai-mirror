@@ -86,6 +86,10 @@ def project_activity(store, project, shared=False, now=None, entries=None):
 
 def timeline(store, project, shared=False, cursor=None, limit=20, now=None):
     events = project_activity(store, project, shared, now)
+    return paginate(events, cursor, limit)
+
+
+def paginate(events, cursor=None, limit=20):
     if cursor:
         try:
             boundary = json.loads(base64.urlsafe_b64decode(cursor + "=" * (-len(cursor) % 4)))

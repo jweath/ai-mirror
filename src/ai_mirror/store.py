@@ -202,9 +202,16 @@ class Store:
             for row in db.execute("""SELECT key,value FROM settings WHERE key LIKE 'evidence/%'
                                    OR key LIKE 'project_evidence/%' OR key LIKE 'pin/%'
                                    OR key LIKE 'github_notifications/%' OR key LIKE 'showcase/%'
-                                   OR key LIKE 'showcase_media/%'""").fetchall():
+                                   OR key LIKE 'showcase_media/%' OR key LIKE 'project_summaries/%'""").fetchall():
                 value = json.loads(row["value"])
-                if value.get("collected_at", value.get("updated_at", "")) < cutoff:
+                if row['key'].startswith('project_summaries/'):
+                    value['summaries'] = [s for s in value['summaries'] if s['at'] >= cutoff]
+                    if value['summaries']:
+                        db.execute('UPDATE settings SET value=? WHERE key=?',
+                                   (stable_json(value), row['key']))
+                    else:
+                        db.execute('DELETE FROM settings WHERE key=?', (row['key'],))
+                elif value.get("collected_at", value.get("updated_at", "")) < cutoff:
                     db.execute("DELETE FROM settings WHERE key=?", (row["key"],))
 
     def backup(self, target):

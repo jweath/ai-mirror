@@ -25,6 +25,7 @@ from .github_setup import PrivateQueryFilter, refresh_connections
 from .learning import LearningClient
 from .pinup import PinConflict, PinUpdate, board, save_pin
 from .progress import create_progress
+from .project_summaries import SummaryUpdate, review_packet, save_summaries
 from .rehearsal import capture_rehearsal, send_rehearsal
 from .showcase import MAX_IMAGE_BYTES, ProfileUpdate, save_profile, upload_image
 from .slack import Slack, SlackError, plain_slack, verify_signature
@@ -198,6 +199,22 @@ def create_app(settings=None, store=None, slack=None):
     def update_project_pin(project_id: str, update: PinUpdate):
         try:
             return save_pin(store, project_id, update)
+        except KeyError:
+            raise HTTPException(404, "Project is not in the configured course") from None
+        except PinConflict as exc:
+            raise HTTPException(409, str(exc)) from None
+
+    @api.get("/api/showcase/projects/{project_id}/summaries", dependencies=[Depends(admin)])
+    def project_summary_evidence(project_id: str):
+        try:
+            return review_packet(store, project_id)
+        except KeyError:
+            raise HTTPException(404, "Project is not in the configured course") from None
+
+    @api.put("/api/showcase/projects/{project_id}/summaries", dependencies=[Depends(admin)])
+    def update_project_summaries(project_id: str, update: SummaryUpdate):
+        try:
+            return save_summaries(store, project_id, update)
         except KeyError:
             raise HTTPException(404, "Project is not in the configured course") from None
         except PinConflict as exc:
