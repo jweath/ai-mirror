@@ -13,6 +13,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from .company_profiles import load_profiles, project_company
 from .config import ROOT
 from .learning import people_with_photos
 
@@ -191,9 +192,12 @@ def create_progress(settings, directory, shared_session, logout, slack_enabled, 
             raise HTTPException(403, "This course is not on your roster")
         return {**user, "csrf": signed_in["csrf"]}
 
-    def view(group, row, user):
+    def view(group, row, user, profiles=None):
         progress = Progress.model_validate_json(row["progress"])
         return {"id": group.id, "name": group.name, "section": group.section,
+                "company_profile": project_company(
+                    profiles if profiles is not None else load_profiles(settings.progress_roster_path),
+                    group.id, progress),
                 "member_profiles": people_with_photos(mirror,group.members) if mirror else [],
                 "members": [m.name for m in group.members], "revision": row["revision"],
                 "progress": progress.model_dump(mode="json"), "reporter": row["reporter"],
@@ -219,7 +223,9 @@ def create_progress(settings, directory, shared_session, logout, slack_enabled, 
     def board(section: str, user=Depends(session)):
         if section not in user["sections"]:
             raise HTTPException(403, "This section is not on your course roster")
-        groups = [view(g, store.get(g), user) for g in directory.roster().groups if g.section == section]
+        profiles = load_profiles(settings.progress_roster_path)
+        groups = [view(g, store.get(g), user, profiles)
+                  for g in directory.roster().groups if g.section == section]
         return {"section": section, "time": SECTIONS[section], "groups": groups, "checked": stamp(),
                 "due": f"2026-11-10T{'11:35' if section == '1135' else '14:55'}:00-05:00"}
 

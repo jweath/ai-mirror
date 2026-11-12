@@ -1,0 +1,86 @@
+[
+  {
+    "company": "Madelyn Tenney Events",
+    "file": "madelyn-tenney-events.png",
+    "website": "https://madelyntenneyevents.com/",
+    "source": "https://static.showit.co/400/TeTvBXDLMFk28aX42r-tKg/232163/mte_-_final_logos_zip_-_primary_logo_-_blue.png",
+    "sha256": "565bc310ff704a70e05413c8ca637e6bb628973bffc13b7a1cdd5e771e51b1f8"
+  },
+  {
+    "company": "Onward Reserve",
+    "file": "onward-reserve.png",
+    "website": "https://onwardreserve.com/",
+    "source": "https://onwardreserve.com/cdn/shop/files/navy-logo_9e7f0905-63a2-4b41-a7b7-1aca2fac41bf.png?v=1677082785",
+    "sha256": "587dd985b94c25b32dc05534598d36c2f3133f050b3e854b676fa3d0e9585e14"
+  },
+  {
+    "company": "Dawg Day Frosé",
+    "file": "dawg-day-frose.png",
+    "website": "https://www.dawgdayfrose.com/",
+    "source": "https://static.wixstatic.com/media/1c182d_685d00f55a084ff1acc3eb6751989e87%7Emv2.png/v1/fill/w_180%2Ch_180%2Clg_1%2Cusm_0.66_1.00_0.01/1c182d_685d00f55a084ff1acc3eb6751989e87%7Emv2.png",
+    "sha256": "a0302cf5ac4c834559966eb255ff6fa57a5dedac3cf6afcf7c43c357879698c2"
+  },
+  {
+    "company": "Baddies Burgers",
+    "file": "baddies-burgers.png",
+    "website": "https://www.eatbaddies.com/",
+    "source": "https://images.squarespace-cdn.com/content/v1/6828edc9be1eab02776eef7c/36246040-c5bb-4f9b-a86d-89f991687263/logo.png?format=1500w",
+    "sha256": "121fbaed84dd91319857242c9c1e71b02c8bf20066cac338e39b167f49c66a1b"
+  },
+  {
+    "company": "Wing Zone",
+    "file": "wing-zone.svg",
+    "website": "https://wingzone.com/",
+    "source": "https://cdn.wingzone.com/WingZone/WZ-logo-desktop.svg",
+    "sha256": "da71e4c67cf5957397e088795b13602c1711b775f1014aac98e62147fb8df4cb"
+  },
+  {
+    "company": "Wander North Georgia",
+    "file": "wander-north-georgia.svg",
+    "website": "https://wandernorthgeorgia.com/",
+    "source": "https://wandernorthgeorgia.com/wp-content/uploads/2020/01/WGN-Mt-Dark.svg",
+    "sha256": "d4f6dea3890acf3919d7cd05890b38384fb187a5b9a748a34383c5a3ab336787"
+  },
+  {
+    "company": "Meg’s Party Co.",
+    "file": "megs-party-co.png",
+    "website": "https://www.megspartyco.com/",
+    "source": "https://images.squarespace-cdn.com/content/v1/65143510f9985b2f4c1cb9ae/29161b60-2754-46e7-8db6-069e08ad582a/Meg+O.png?format=1500w",
+    "sha256": "062347e6e3ce8f45ac5b337b96403f628302c876ba36807054e31479621fc7ce"
+  },
+  {
+    "company": "Rumi’s Kitchen",
+    "file": "rumis-kitchen.png",
+    "website": "https://www.rumiskitchen.com/",
+    "source": "https://images.squarespace-cdn.com/content/v1/6840cbf29346cf2038058f74/85dea652-61a5-4f6f-8aba-82b508d768be/RUMIS-KITCHEN_PRIMARY-LOGO.png?format=1500w",
+    "sha256": "38b026d38b9acd73571381614fb45281df2d808bc7972f49072e0202496a8987"
+  },
+  {
+    "company": "Centauri Innovations LLC",
+    "file": "centauri-innovations.png",
+    "website": "https://centauriinnovationsllc.com/",
+    "source": "https://centauriinnovationsllc.com/wp-content/uploads/2020/11/Final.png",
+    "sha256": "7920d8eabe35f77fb0a97464a05e7b4af70b3b236baeaee3da28a62a9d04a95b"
+  },
+  {
+    "company": "Unfazed Exhibit",
+    "file": "unfazed-exhibit.webp",
+    "website": "https://unfazedexhibit.com/",
+    "source": "https://unfazedexhibit.com/wp-content/uploads/2024/12/Unfazed-Logo_.webp",
+    "sha256": "3d12528ba775e8d50a9bc5d9e6b929ad708089913b2ff14698003218b34fa4da"
+  },
+  {
+    "company": "Kate Arnold Wines",
+    "file": "kate-arnold-wines.png",
+    "website": "https://www.katewines.com/",
+    "source": "https://images.squarespace-cdn.com/content/v1/5984a2938419c27e05622fa3/1607706305512-24ZYWDC7JWCE3TWF8PBY/new+logo+for+site+copy.png",
+    "sha256": "cf0b962774dbb630e1a84f3afd145c9b4443e8fea5f8dfe22385ca924823d897"
+  },
+  {
+    "company": "Kiya Tomlin",
+    "file": "kiya-tomlin.png",
+    "website": "https://www.kiyatomlin.us/",
+    "source": "https://www.kiyatomlin.us/cdn/shop/files/KIYA_TOMLIN_LOGO_30b12b6f-c35a-4de2-b708-8ffc56f5c26b_500x.png?v=1613163809",
+    "sha256": "edc84e6de58357bf81c9491e019ebfb5ca0423fdcc7153c920352c36192deca1"
+  }
+]

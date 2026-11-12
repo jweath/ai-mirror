@@ -50,26 +50,53 @@ function milestones(p) {
   }
   return list;
 }
+function companyIdentity(g) {
+  const profile=g.company_profile, p=g.progress, box=el('div',undefined,'company-identity');
+  if(profile?.logo_file && /^[a-z0-9][a-z0-9-]{0,79}\.(svg|png|webp|jpe?g)$/.test(profile.logo_file)) {
+    const mark=el('span',undefined,'company-logo'), img=el('img');
+    img.src=base+'/assets/company-logos/'+profile.logo_file; img.alt=''; img.loading='lazy';
+    img.width=80; img.height=80; img.referrerPolicy='no-referrer';
+    img.addEventListener('error',()=>{mark.remove();box.classList.remove('has-logo');},{once:true});
+    mark.append(img); box.append(mark); box.classList.add('has-logo');
+  }
+  const text=el('div',undefined,'company-identity-text');
+  const name=profile?.name || p.company || p.entrepreneur || 'Entrepreneur not recorded';
+  text.append(el('p',name,'founder-name'));
+  if(p.entrepreneur && p.entrepreneur!==name) text.append(el('p',p.entrepreneur,'company-founder'));
+  if(profile?.website_url) link(text,profile.website_url,'Company website');
+  box.append(text); return box;
+}
+function projectDocument(g) {
+  const box=el('section',undefined,'project-document'); box.setAttribute('aria-label','Project document');
+  box.append(el('h3','Project document'));
+  const href=g.progress.document_url;
+  let googleDoc=false;
+  try { const u=new URL(href); googleDoc=u.hostname==='docs.google.com' && /^\/document\/(?:u\/\d+\/)?d\//.test(u.pathname); } catch {}
+  if(href) link(box,href,googleDoc?'Open original Google Doc':'Open original document');
+  else box.append(el('p','Google Doc not linked','document-empty'));
+  return box;
+}
 function render() {
   const query = $('search').value.toLowerCase().trim(), filter = $('filter').value;
-  const groups = board.groups.filter(g => (filter === 'all' || g.progress.interview === filter) && [g.name, ...g.members, g.progress.entrepreneur, g.progress.company, g.progress.next_step].join(' ').toLowerCase().includes(query));
+  const groups = board.groups.filter(g => (filter === 'all' || g.progress.interview === filter) && [g.name, ...g.members, g.company_profile?.name || '', g.progress.entrepreneur, g.progress.company, g.progress.next_step].join(' ').toLowerCase().includes(query));
   const grid=el('div',undefined,'project-grid');
   for (const g of groups) {
-    const p=g.progress, card=el('a',undefined,'project-card'); card.href='#group='+encodeURIComponent(g.id); card.dataset.group=g.id; card.setAttribute('aria-label',g.name+' project updates');
-    const top=el('div',undefined,'card-heading'); top.append(el('h2',g.name),el('span','→','card-arrow')); top.lastChild.setAttribute('aria-hidden','true');
-    const founder=el('div',undefined,'card-founder'); founder.append(el('p',p.entrepreneur || p.company || 'Entrepreneur not recorded','founder-name')); if(p.company && p.entrepreneur) founder.append(el('p',p.company,'company'));
-    card.append(top,founder,members(g),milestones(p));
+    const p=g.progress, card=el('article',undefined,'project-card'); card.dataset.group=g.id;
+    const top=el('div',undefined,'card-heading'), heading=el('h2'), mainLink=el('a',g.name,'project-main-link');
+    mainLink.href='#group='+encodeURIComponent(g.id); mainLink.setAttribute('aria-label',g.name+' project updates');
+    heading.append(mainLink); top.append(heading,el('span','→','card-arrow')); top.lastChild.setAttribute('aria-hidden','true');
+    card.append(top,companyIdentity(g),projectDocument(g),members(g),milestones(p));
     if(p.next_step) { const next=el('div',undefined,'card-next'); next.append(el('span','Next step','muted'),el('p',p.next_step)); card.append(next); }
     if(p.blocker) card.append(el('p','Blocker: '+p.blocker,'card-blocker'));
     if(g.revision || p.source_date) card.append(el('p',g.revision ? 'Updated '+savedDay(g.updated) : 'Source '+day(p.source_date),'card-date'));
-    card.addEventListener('click',()=>{returnGroup=g.id;overviewScroll=window.scrollY;}); grid.append(card);
+    mainLink.addEventListener('click',()=>{returnGroup=g.id;overviewScroll=window.scrollY;}); grid.append(card);
   }
   $('groups').replaceChildren(groups.length ? grid : el('p','No groups match this search.'));
   $('summary').textContent = `${groups.length} of ${board.groups.length} groups · ${board.groups.filter(g=>g.progress.interview === 'completed').length} interviews reported complete`;
 }
 function currentProject(g) {
   const p=g.progress, content=el('div',undefined,'current-project');
-  content.append(el('h2',p.entrepreneur || p.company || 'Entrepreneur not recorded','project-founder')); if(p.company && p.entrepreneur) content.append(el('p',p.company,'company'));
+  content.append(companyIdentity(g),projectDocument(g));
   content.append(milestones(p));
   const details=el('details',undefined,'project-details'); details.open=!narrowScreen.matches; details.append(el('summary','Team and project details'),members(g));
   const facts=el('dl',undefined,'project-facts');
@@ -79,7 +106,7 @@ function currentProject(g) {
   }
   details.append(facts);
   if(p.interview==='completed' && !p.completed_date) details.append(el('p','Interview reported complete; exact date not recorded.','muted'));
-  const links=el('nav',undefined,'source-links'); links.setAttribute('aria-label','Project sources'); link(links,g.slack_url,'Team Slack'); link(links,p.document_url,'Group document'); link(links,p.creative_url,'Creative product'); link(links,p.source_url,'Source'); details.append(links); content.append(details);
+  const links=el('nav',undefined,'source-links'); links.setAttribute('aria-label','Project sources'); link(links,g.slack_url,'Team Slack'); link(links,p.creative_url,'Creative product'); link(links,p.source_url,'Source'); details.append(links); content.append(details);
   if(g.editable) { const edit=el('button','Update group'); edit.addEventListener('click',()=>openEditor(g)); content.append(edit); }
   $('project-current').replaceChildren(content);
 }
@@ -138,7 +165,7 @@ function syncView(focus=false) {
   $('page-title').textContent=group?group.name:'Final projects'; document.title=(group?group.name+' · ':'Final projects · ')+'ENTR 5500';
   if(!id) {
     selected=null; detailRevision=null; detailGeneration++;
-    if(focus && wasSelected) { const card=[...document.querySelectorAll('[data-group]')].find(n=>n.dataset.group===returnGroup); window.scrollTo(0,overviewScroll); (card || $('page-title')).focus({preventScroll:true}); }
+    if(focus && wasSelected) { const card=[...document.querySelectorAll('[data-group]')].find(n=>n.dataset.group===returnGroup); window.scrollTo(0,overviewScroll); (card?.querySelector('.project-main-link') || $('page-title')).focus({preventScroll:true}); }
     return;
   }
   if(!group) { selected=null; detailGeneration++; $('project-current').replaceChildren();$('timeline').replaceChildren(el('p','This group is not in your section.')); return; }
