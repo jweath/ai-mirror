@@ -54,6 +54,7 @@ function companyIdentity(g) {
   const profile=g.company_profile, p=g.progress, box=el('div',undefined,'company-identity');
   if(profile?.logo_file && /^[a-z0-9][a-z0-9-]{0,79}\.(svg|png|webp|jpe?g)$/.test(profile.logo_file)) {
     const mark=el('span',undefined,'company-logo'), img=el('img');
+    if(['unfazed-exhibit.webp','rumis-kitchen.png'].includes(profile.logo_file)) mark.classList.add('company-logo-dark');
     img.src=base+'/assets/company-logos/'+profile.logo_file; img.alt=''; img.loading='lazy';
     img.width=80; img.height=80; img.referrerPolicy='no-referrer';
     img.addEventListener('error',()=>{mark.remove();box.classList.remove('has-logo');},{once:true});
