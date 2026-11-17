@@ -87,7 +87,7 @@ function render() {
     mainLink.href='#group='+encodeURIComponent(g.id); mainLink.setAttribute('aria-label',g.name+' project updates');
     heading.append(mainLink); top.append(heading,el('span','→','card-arrow')); top.lastChild.setAttribute('aria-hidden','true');
     card.append(top,companyIdentity(g),projectDocument(g),members(g),milestones(p));
-    if(p.next_step) { const next=el('div',undefined,'card-next'); next.append(el('span','Next step','muted'),el('p',p.next_step)); card.append(next); }
+    if(p.next_step) { const next=el('div',undefined,'card-next'); next.append(el('span','Next step','muted'),appendHttpsNote(el('p'),p.next_step)); card.append(next); }
     if(p.blocker) card.append(el('p','Blocker: '+p.blocker,'card-blocker'));
     if(g.revision || p.source_date) card.append(el('p',g.revision ? 'Updated '+savedDay(g.updated) : 'Source '+day(p.source_date),'card-date'));
     mainLink.addEventListener('click',()=>{returnGroup=g.id;overviewScroll=window.scrollY;}); grid.append(card);
@@ -103,7 +103,10 @@ function currentProject(g) {
   const facts=el('dl',undefined,'project-facts');
   for(const key of ['scheduled_date','completed_date','presentation_date','creative_format','next_step','owner','target_date','blocker']) {
     if (!p[key]) continue;
-    const item=el('div'); item.append(el('dt',fieldLabels[key]),el('dd',dateFields.includes(key)?day(p[key]):p[key],key==='blocker'?'error':'')); facts.append(item);
+    const item=el('div'), value=el('dd',undefined,key==='blocker'?'error':'');
+    if(key==='next_step') appendHttpsNote(value,p[key]);
+    else value.textContent=dateFields.includes(key)?day(p[key]):p[key];
+    item.append(el('dt',fieldLabels[key]),value); facts.append(item);
   }
   details.append(facts);
   if(p.interview==='completed' && !p.completed_date) details.append(el('p','Interview reported complete; exact date not recorded.','muted'));
@@ -126,6 +129,7 @@ function timelineEvent(update) {
   for(const change of changes) {
     const row=el('div'), value=el('dd'); row.append(el('dt',fieldLabels[change.field]));
     if(change.field.endsWith('_url') && change.after) link(value,change.after,'Open '+fieldLabels[change.field].toLowerCase());
+    else if(change.field==='next_step') appendHttpsNote(value,fieldValue(change.field,change.after));
     else value.append(el('span',fieldValue(change.field,change.after)));
     if(update.revision>0 && ['interview','paper','creative'].includes(change.field)) value.append(el('span','Previously '+(change.before==='unknown'?'not recorded':fieldValue(change.field,change.before)),'previous-value'));
     row.append(value); list.append(row);
